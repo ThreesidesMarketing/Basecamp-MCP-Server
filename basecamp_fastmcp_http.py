@@ -12,7 +12,8 @@ import sys
 from typing import Any, Dict, List, Optional
 import anyio
 import httpx
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
+
 
 # Import existing business logic
 from basecamp_client import BasecampClient
@@ -39,11 +40,7 @@ logging.basicConfig(
 logger = logging.getLogger('basecamp_fastmcp')
 
 # Initialize FastMCP server
-mcp = FastMCP("basecamp", 
-    transport_security=TransportSecuritySettings(
-        enable_dns_rebinding_protection=False,
-    ),
-)
+mcp = FastMCP("basecamp")
 
 # Auth helper functions (reused from original server)
 async def _get_basecamp_client() -> Optional[BasecampClient]:
@@ -2502,6 +2499,4 @@ async def reposition_todolist_group(
 
 if __name__ == "__main__":
     logger.info("Starting Basecamp FastMCP server")
-    mcp.settings.host="0.0.0.0"
-    mcp.settings.allowed_hosts = ["*"]
-    mcp.run(transport='streamable-http')
+    mcp.run(transport='http', host="0.0.0.0", port=8000)

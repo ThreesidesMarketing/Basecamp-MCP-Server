@@ -12,7 +12,7 @@ import sys
 from typing import Any, Dict, List, Optional
 import anyio
 import httpx
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 
 # Import existing business logic
 from basecamp_client import BasecampClient

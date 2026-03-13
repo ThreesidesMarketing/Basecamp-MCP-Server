@@ -39,7 +39,11 @@ logging.basicConfig(
 logger = logging.getLogger('basecamp_fastmcp')
 
 # Initialize FastMCP server
-mcp = FastMCP("basecamp")
+mcp = FastMCP("basecamp", 
+    transport_security=TransportSecuritySettings(
+        enable_dns_rebinding_protection=False,
+    ),
+)
 
 # Auth helper functions (reused from original server)
 async def _get_basecamp_client() -> Optional[BasecampClient]:

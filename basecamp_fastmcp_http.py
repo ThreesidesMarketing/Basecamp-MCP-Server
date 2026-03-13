@@ -2498,5 +2498,5 @@ async def reposition_todolist_group(
 
 if __name__ == "__main__":
     logger.info("Starting Basecamp FastMCP server")
-    mcp.settings.host="127.0.0.1"
+    mcp.settings.host="0.0.0.0"
     mcp.run(transport='streamable-http')

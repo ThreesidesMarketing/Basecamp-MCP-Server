@@ -31,6 +31,7 @@ logs/
 
 # Sensitive data
 oauth_tokens.json
+auth/
 .env
 .flaskenv
 

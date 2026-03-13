@@ -14,8 +14,8 @@ import logging
 
 # Determine the directory where this script (token_storage.py) is located
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-# Define TOKEN_FILE as an absolute path within that directory
-TOKEN_FILE = os.path.join(SCRIPT_DIR, 'oauth_tokens.json')
+# Define TOKEN_FILE as an absolute path within the auth subdirectory
+TOKEN_FILE = os.path.join(SCRIPT_DIR, 'auth', 'oauth_tokens.json')
 
 # Lock for thread-safe operations
 _lock = threading.Lock()

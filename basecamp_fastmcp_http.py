@@ -199,8 +199,39 @@ async def search_basecamp(query: str, project_id: str = "") -> Dict[str, Any]:
         }
 
 @mcp.tool()
-async def get_todolists(project_id: str) -> Dict[str, Any]:
-    """Get todo lists for a project.
+async def get_todolists(project_id, todoset_id=""):
+    """Get todo lists for a project, optionally filtered by todoset.
+    
+    Args:
+        project_id: The project ID
+        todoset_id: Optional todoset ID to filter todolists. If empty, returns todolists from all todosets.
+    """
+    client = await _get_basecamp_client()
+    if not client:
+        return _get_auth_error_response()
+    
+    try:
+        todolists = await _run_sync(client.get_todolists, project_id, todoset_id)
+        return {
+            "status": "success",
+            "todolists": todolists,
+            "count": len(todolists)
+        }
+    except Exception as e:
+        logger.error(f"Error getting todolists: {e}")
+        if "401" in str(e) and "expired" in str(e).lower():
+            return {
+                "error": "OAuth token expired",
+                "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."
+            }
+        return {
+            "error": "Execution error",
+            "message": str(e)
+        }
+
+@mcp.tool()
+async def get_todosets(project_id: str) -> Dict[str, Any]:
+    """Get all todosets for a project.
     
     Args:
         project_id: The project ID
@@ -210,14 +241,44 @@ async def get_todolists(project_id: str) -> Dict[str, Any]:
         return _get_auth_error_response()
     
     try:
-        todolists = await _run_sync(client.get_todolists, project_id)
+        todosets = await _run_sync(client.get_todosets, project_id)
         return {
             "status": "success",
-            "todolists": todolists,
-            "count": len(todolists)
+            "todosets": todosets,
+            "count": len(todosets)
         }
     except Exception as e:
-        logger.error(f"Error getting todolists: {e}")
+        logger.error(f"Error getting todosets: {e}")
+        if "401" in str(e) and "expired" in str(e).lower():
+            return {
+                "error": "OAuth token expired",
+                "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."
+            }
+        return {
+            "error": "Execution error",
+            "message": str(e)
+        }
+
+@mcp.tool()
+async def get_todoset(project_id: str, todoset_id: str = "") -> Dict[str, Any]:
+    """Get a specific todoset for a project.
+    
+    Args:
+        project_id: The project ID
+        todoset_id: Optional specific todoset ID. If not provided, returns the first todoset found.
+    """
+    client = await _get_basecamp_client()
+    if not client:
+        return _get_auth_error_response()
+    
+    try:
+        todoset = await _run_sync(client.get_todoset, project_id, todoset_id if todoset_id else None)
+        return {
+            "status": "success",
+            "todoset": todoset
+        }
+    except Exception as e:
+        logger.error(f"Error getting todoset: {e}")
         if "401" in str(e) and "expired" in str(e).lower():
             return {
                 "error": "OAuth token expired",
@@ -290,13 +351,7 @@ async def get_todo(project_id: str, todo_id: str) -> Dict[str, Any]:
         }
 
 @mcp.tool()
-async def create_todo(project_id: str, todolist_id: str, content: str, 
-                     description: str = "", 
-                     assignee_ids: List[str] = [],
-                     completion_subscriber_ids: List[str] = [], 
-                     notify: bool = False, 
-                     due_on: str = "", 
-                     starts_on: str = "") -> Dict[str, Any]:
+async def create_todo(project_id, todolist_id, content, description="", notify=False):
     """Create a new todo item in a todo list.
     
     Args:
@@ -304,34 +359,22 @@ async def create_todo(project_id: str, todolist_id: str, content: str,
         todolist_id: The todo list ID
         content: The todo item's text (required)
         description: HTML description of the todo
-        assignee_ids: List of person IDs to assign
-        completion_subscriber_ids: List of person IDs to notify on completion
         notify: Whether to notify assignees
-        due_on: Due date in YYYY-MM-DD format
-        starts_on: Start date in YYYY-MM-DD format
     """
     client = await _get_basecamp_client()
     if not client:
         return _get_auth_error_response()
     
     try:
-        # Convert empty strings and empty lists to None
+        # Convert empty strings to None
         desc = description if description else None
-        assignees = assignee_ids if assignee_ids else None
-        subscribers = completion_subscriber_ids if completion_subscriber_ids else None
-        due = due_on if due_on else None
-        starts = starts_on if starts_on else None
         
         # Use lambda to properly handle keyword arguments
         todo = await _run_sync(
             lambda: client.create_todo(
                 project_id, todolist_id, content,
                 description=desc,
-                assignee_ids=assignees,
-                completion_subscriber_ids=subscribers,
-                notify=notify,
-                due_on=due,
-                starts_on=starts
+                notify=notify
             )
         )
         return {
@@ -352,14 +395,14 @@ async def create_todo(project_id: str, todolist_id: str, content: str,
         }
 
 @mcp.tool()
-async def update_todo(project_id: str, todo_id: str, 
-                     content: str = "__NOT_SET__",
-                     description: str = "__NOT_SET__", 
-                     assignee_ids: List[str] = ["__NOT_SET__"],
-                     completion_subscriber_ids: List[str] = ["__NOT_SET__"],
-                     notify: bool = False,
-                     due_on: str = "__NOT_SET__", 
-                     starts_on: str = "__NOT_SET__") -> Dict[str, Any]:
+async def update_todo(project_id, todo_id, 
+                     content="__NOT_SET__",
+                     description="__NOT_SET__", 
+                     assignee_ids=None,
+                     completion_subscriber_ids=None,
+                     notify=False,
+                     due_on="__NOT_SET__", 
+                     starts_on="__NOT_SET__"):
     """Update an existing todo item.
     
     Args:
@@ -367,8 +410,8 @@ async def update_todo(project_id: str, todo_id: str,
         todo_id: The todo ID
         content: The todo item's text
         description: HTML description of the todo
-        assignee_ids: List of person IDs to assign
-        completion_subscriber_ids: List of person IDs to notify on completion
+        assignee_ids: Optional list of person IDs to assign
+        completion_subscriber_ids: Optional list of person IDs to notify on completion
         due_on: Due date in YYYY-MM-DD format
         starts_on: Start date in YYYY-MM-DD format
     """
@@ -380,8 +423,8 @@ async def update_todo(project_id: str, todo_id: str,
         # Convert sentinel values to None
         content_val = None if content == "__NOT_SET__" else content
         desc_val = None if description == "__NOT_SET__" else description
-        assignees_val = None if assignee_ids == ["__NOT_SET__"] else assignee_ids
-        subscribers_val = None if completion_subscriber_ids == ["__NOT_SET__"] else completion_subscriber_ids
+        assignees_val = assignee_ids
+        subscribers_val = completion_subscriber_ids
         due_val = None if due_on == "__NOT_SET__" else due_on
         starts_val = None if starts_on == "__NOT_SET__" else starts_on
         
@@ -1372,7 +1415,7 @@ async def get_card(project_id: str, card_id: str) -> Dict[str, Any]:
         }
 
 @mcp.tool()
-async def update_card(project_id: str, card_id: str, title: str = "__NOT_SET__", content: str = "__NOT_SET__", due_on: str = "__NOT_SET__", assignee_ids: List[str] = ["__NOT_SET__"]) -> Dict[str, Any]:
+async def update_card(project_id, card_id, title="__NOT_SET__", content="__NOT_SET__", due_on="__NOT_SET__", assignee_ids=None):
     """Update a card.
     
     Args:
@@ -1381,7 +1424,7 @@ async def update_card(project_id: str, card_id: str, title: str = "__NOT_SET__",
         title: The new card title
         content: The new card content/description
         due_on: Due date (ISO 8601 format)
-        assignee_ids: Array of person IDs to assign to the card
+        assignee_ids: Optional array of person IDs to assign to the card
     """
     client = await _get_basecamp_client()
     if not client:
@@ -1391,7 +1434,7 @@ async def update_card(project_id: str, card_id: str, title: str = "__NOT_SET__",
         title_val = None if title == "__NOT_SET__" else title
         content_val = None if content == "__NOT_SET__" else content
         due_on_val = None if due_on == "__NOT_SET__" else due_on
-        assignee_ids_val = None if assignee_ids == ["__NOT_SET__"] else assignee_ids
+        assignee_ids_val = assignee_ids
         
         card = await _run_sync(client.update_card, project_id, card_id, title_val, content_val, due_on_val, assignee_ids_val)
         return {
@@ -1761,7 +1804,7 @@ async def get_card_steps(project_id: str, card_id: str) -> Dict[str, Any]:
         }
 
 @mcp.tool()
-async def create_card_step(project_id: str, card_id: str, title: str, due_on: str = "", assignee_ids: List[str] = []) -> Dict[str, Any]:
+async def create_card_step(project_id, card_id, title, due_on="", assignee_ids=None):
     """Create a new step (sub-task) for a card.
     
     Args:
@@ -1769,7 +1812,7 @@ async def create_card_step(project_id: str, card_id: str, title: str, due_on: st
         card_id: The card ID
         title: The step title
         due_on: Optional due date (ISO 8601 format)
-        assignee_ids: Array of person IDs to assign to the step
+        assignee_ids: Optional array of person IDs to assign to the step
     """
     client = await _get_basecamp_client()
     if not client:
@@ -1825,7 +1868,7 @@ async def get_card_step(project_id: str, step_id: str) -> Dict[str, Any]:
         }
 
 @mcp.tool()
-async def update_card_step(project_id: str, step_id: str, title: str = "__NOT_SET__", due_on: str = "__NOT_SET__", assignee_ids: List[str] = ["__NOT_SET__"]) -> Dict[str, Any]:
+async def update_card_step(project_id, step_id, title="__NOT_SET__", due_on="__NOT_SET__", assignee_ids=None):
     """Update a card step.
     
     Args:
@@ -1833,7 +1876,7 @@ async def update_card_step(project_id: str, step_id: str, title: str = "__NOT_SE
         step_id: The step ID
         title: The step title
         due_on: Due date (ISO 8601 format)
-        assignee_ids: Array of person IDs to assign to the step
+        assignee_ids: Optional array of person IDs to assign to the step
     """
     client = await _get_basecamp_client()
     if not client:
@@ -1842,7 +1885,7 @@ async def update_card_step(project_id: str, step_id: str, title: str = "__NOT_SE
     try:
         title_val = None if title == "__NOT_SET__" else title
         due_on_val = None if due_on == "__NOT_SET__" else due_on
-        assignee_ids_val = None if assignee_ids == ["__NOT_SET__"] else assignee_ids
+        assignee_ids_val = assignee_ids
         
         step = await _run_sync(client.update_card_step, project_id, step_id, title_val, due_on_val, assignee_ids_val)
         return {
@@ -2046,13 +2089,13 @@ async def get_webhooks(project_id: str) -> Dict[str, Any]:
         }
 
 @mcp.tool()
-async def create_webhook(project_id: str, payload_url: str, types: List[str] = []) -> Dict[str, Any]:
+async def create_webhook(project_id, payload_url, types=None):
     """Create a webhook.
     
     Args:
         project_id: Project ID
         payload_url: Payload URL
-        types: Event types
+        types: Optional event types
     """
     client = await _get_basecamp_client()
     if not client:

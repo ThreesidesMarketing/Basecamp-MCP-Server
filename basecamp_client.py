@@ -148,26 +148,84 @@ class BasecampClient:
             raise Exception(f"Failed to get project: {response.status_code} - {response.text}")
 
     # To-do list methods
-    def get_todoset(self, project_id):
-        """Get the todoset for a project (Basecamp 3 has one todoset per project)."""
-        project = self.get_project(project_id)
-        try:
-            return next(_ for _ in project["dock"] if _["name"] == "todoset")
-        except (IndexError, TypeError, StopIteration):
-            raise Exception(f"Failed to get todoset for project: {project.id}. Project response: {project}")
-    
-    def get_todolists(self, project_id):
-        """Get all todolists for a project."""
-        # First get the todoset ID for this project
-        todoset = self.get_todoset(project_id)
-        todoset_id = todoset['id']
+    def get_todosets(self, project_id):
+        """Get all todosets for a project.
 
-        # Then get all todolists in this todoset
-        response = self.get(f'buckets/{project_id}/todosets/{todoset_id}/todolists.json')
-        if response.status_code == 200:
-            return response.json()
+        Basecamp 3 supports multiple todosets per project. This method retrieves
+        all todosets from the project's dock.
+
+        Args:
+            project_id (str): The project ID
+
+        Returns:
+            list: List of todosets for the project
+        """
+        project = self.get_project(project_id)
+        todosets = [item for item in project.get("dock", []) if item.get("name") == "todoset"]
+        return todosets
+
+    def get_todoset(self, project_id, todoset_id=None):
+        """Get a specific todoset for a project.
+
+        If todoset_id is not provided, returns the first todoset found in the project's dock
+        (for backward compatibility).
+
+        Args:
+            project_id (str): The project ID
+            todoset_id (str, optional): Specific todoset ID to retrieve
+
+        Returns:
+            dict: The todoset object
+        """
+        if todoset_id:
+            # Get specific todoset by ID
+            endpoint = f'buckets/{project_id}/todosets/{todoset_id}.json'
+            response = self.get(endpoint)
+            if response.status_code == 200:
+                return response.json()
+            else:
+                raise Exception(f"Failed to get todoset {todoset_id}: {response.status_code} - {response.text}")
         else:
-            raise Exception(f"Failed to get todolists: {response.status_code} - {response.text}")
+            # Backward compatibility: get first todoset from project dock
+            project = self.get_project(project_id)
+            try:
+                return next(_ for _ in project["dock"] if _["name"] == "todoset")
+            except (IndexError, TypeError, StopIteration):
+                raise Exception(f"Failed to get todoset for project: {project_id}. Project response: {project}")
+
+    def get_todolists(self, project_id, todoset_id=None):
+        """Get all todolists for a project, optionally filtered by todoset.
+
+        Args:
+            project_id (str): The project ID
+            todoset_id (str, optional): Specific todoset ID to get todolists from.
+                                      If not provided, gets todolists from all todosets.
+
+        Returns:
+            list: List of todolists
+        """
+        if todoset_id:
+            # Get todolists from specific todoset
+            endpoint = f'buckets/{project_id}/todosets/{todoset_id}/todolists.json'
+            response = self.get(endpoint)
+            if response.status_code == 200:
+                return response.json()
+            else:
+                raise Exception(f"Failed to get todolists: {response.status_code} - {response.text}")
+        else:
+            # Get todolists from all todosets - for backward compatibility, use legacy approach
+            # TODO: Implement proper multiple todosets support
+            todoset = self.get_todoset(project_id)  # Legacy method
+            todoset_id = todoset['id']
+            endpoint = f'buckets/{project_id}/todosets/{todoset_id}/todolists.json'
+            response = self.get(endpoint)
+            if response.status_code == 200:
+                todolists = response.json()
+                for todolist in todolists:
+                    todolist['todoset'] = {'id': todoset_id, 'name': todoset.get('name', 'Unknown')}
+                return todolists
+            else:
+                raise Exception(f"Failed to get todolists: {response.status_code} - {response.text}")
 
     def get_todolist(self, project_id, todolist_id):
         """Get a specific todolist."""

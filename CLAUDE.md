@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-This is a **Basecamp 3 MCP (Model Context Protocol) Server** that allows AI assistants (Cursor, Claude Desktop) to interact with Basecamp directly. It uses OAuth 2.0 for authentication and provides 75 tools for Basecamp operations.
+This is a **Basecamp 3 MCP (Model Context Protocol) Server** that allows AI assistants (Cursor, Claude Desktop) to interact with Basecamp directly. It uses OAuth 2.0 for authentication and provides 76 tools for Basecamp operations.
 
 ## Development Commands
 
@@ -40,16 +40,16 @@ python generate_claude_desktop_config.py   # For Claude Desktop
 
 ### Core Files
 
-| File | Purpose |
-| ------ | --------- |
-| `basecamp_fastmcp.py` | **Main MCP server** using official Anthropic FastMCP framework (75 tools) |
-| `mcp_server_cli.py` | Legacy JSON-RPC server (same tools, custom implementation) |
-| `basecamp_client.py` | Basecamp 3 API client - all HTTP methods and endpoints |
-| `basecamp_oauth.py` | OAuth 2.0 client for 37signals Launchpad |
-| `auth_manager.py` | Automatic token refresh before API calls |
-| `token_storage.py` | Thread-safe OAuth token persistence (`oauth_tokens.json`) |
-| `search_utils.py` | Cross-project search functionality |
-| `oauth_app.py` | Flask app for OAuth flow (browser-based login) |
+| File                  | Purpose                                                                   |
+| --------------------- | ------------------------------------------------------------------------- |
+| `basecamp_fastmcp.py` | **Main MCP server** using official Anthropic FastMCP framework (76 tools) |
+| `mcp_server_cli.py`   | Legacy JSON-RPC server (same tools, custom implementation)                |
+| `basecamp_client.py`  | Basecamp 3 API client - all HTTP methods and endpoints                    |
+| `basecamp_oauth.py`   | OAuth 2.0 client for 37signals Launchpad                                  |
+| `auth_manager.py`     | Automatic token refresh before API calls                                  |
+| `token_storage.py`    | Thread-safe OAuth token persistence (`oauth_tokens.json`)                 |
+| `search_utils.py`     | Cross-project search functionality                                        |
+| `oauth_app.py`        | Flask app for OAuth flow (browser-based login)                            |
 
 ### Data Flow
 
@@ -136,7 +136,7 @@ Basecamp paginates list endpoints (~15 items/page). See `get_todos()` in `baseca
 
 Required in `.env`:
 
-``` bash
+```bash
 BASECAMP_CLIENT_ID=your_client_id
 BASECAMP_CLIENT_SECRET=your_client_secret
 BASECAMP_ACCOUNT_ID=your_account_id

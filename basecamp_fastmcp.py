@@ -290,12 +290,12 @@ async def get_todo(project_id: str, todo_id: str) -> Dict[str, Any]:
 
 @mcp.tool()
 async def create_todo(project_id: str, todolist_id: str, content: str, 
-                     description: Optional[str] = None, 
-                     assignee_ids: Optional[List[str]] = None,
-                     completion_subscriber_ids: Optional[List[str]] = None, 
+                     description: str = "", 
+                     assignee_ids: List[str] = [],
+                     completion_subscriber_ids: List[str] = [], 
                      notify: bool = False, 
-                     due_on: Optional[str] = None, 
-                     starts_on: Optional[str] = None) -> Dict[str, Any]:
+                     due_on: str = "", 
+                     starts_on: str = "") -> Dict[str, Any]:
     """Create a new todo item in a todo list.
     
     Args:
@@ -314,16 +314,23 @@ async def create_todo(project_id: str, todolist_id: str, content: str,
         return _get_auth_error_response()
     
     try:
+        # Convert empty strings and empty lists to None
+        desc = description if description else None
+        assignees = assignee_ids if assignee_ids else None
+        subscribers = completion_subscriber_ids if completion_subscriber_ids else None
+        due = due_on if due_on else None
+        starts = starts_on if starts_on else None
+        
         # Use lambda to properly handle keyword arguments
         todo = await _run_sync(
             lambda: client.create_todo(
                 project_id, todolist_id, content,
-                description=description,
-                assignee_ids=assignee_ids,
-                completion_subscriber_ids=completion_subscriber_ids,
+                description=desc,
+                assignee_ids=assignees,
+                completion_subscriber_ids=subscribers,
                 notify=notify,
-                due_on=due_on,
-                starts_on=starts_on
+                due_on=due,
+                starts_on=starts
             )
         )
         return {
@@ -345,13 +352,13 @@ async def create_todo(project_id: str, todolist_id: str, content: str,
 
 @mcp.tool()
 async def update_todo(project_id: str, todo_id: str, 
-                     content: Optional[str] = None,
-                     description: Optional[str] = None, 
-                     assignee_ids: Optional[List[str]] = None,
-                     completion_subscriber_ids: Optional[List[str]] = None,
-                     notify: Optional[bool] = None,
-                     due_on: Optional[str] = None, 
-                     starts_on: Optional[str] = None) -> Dict[str, Any]:
+                     content: str = "__NOT_SET__",
+                     description: str = "__NOT_SET__", 
+                     assignee_ids: List[str] = ["__NOT_SET__"],
+                     completion_subscriber_ids: List[str] = ["__NOT_SET__"],
+                     notify: bool = False,
+                     due_on: str = "__NOT_SET__", 
+                     starts_on: str = "__NOT_SET__") -> Dict[str, Any]:
     """Update an existing todo item.
     
     Args:
@@ -369,10 +376,17 @@ async def update_todo(project_id: str, todo_id: str,
         return _get_auth_error_response()
     
     try:
+        # Convert sentinel values to None
+        content_val = None if content == "__NOT_SET__" else content
+        desc_val = None if description == "__NOT_SET__" else description
+        assignees_val = None if assignee_ids == ["__NOT_SET__"] else assignee_ids
+        subscribers_val = None if completion_subscriber_ids == ["__NOT_SET__"] else completion_subscriber_ids
+        due_val = None if due_on == "__NOT_SET__" else due_on
+        starts_val = None if starts_on == "__NOT_SET__" else starts_on
+        
         # Guard against no-op updates
-        if all(v is None for v in [content, description, assignee_ids,
-                                   completion_subscriber_ids, notify,
-                                   due_on, starts_on]):
+        if all(v is None for v in [content_val, desc_val, assignees_val,
+                                   subscribers_val, due_val, starts_val]) and notify == False:
             return {
                 "error": "Invalid input",
                 "message": "At least one field to update must be provided"
@@ -381,13 +395,13 @@ async def update_todo(project_id: str, todo_id: str,
         todo = await _run_sync(
             lambda: client.update_todo(
                 project_id, todo_id,
-                content=content,
-                description=description,
-                assignee_ids=assignee_ids,
-                completion_subscriber_ids=completion_subscriber_ids,
+                content=content_val,
+                description=desc_val,
+                assignee_ids=assignees_val,
+                completion_subscriber_ids=subscribers_val,
                 notify=notify,
-                due_on=due_on,
-                starts_on=starts_on
+                due_on=due_val,
+                starts_on=starts_val
             )
         )
         return {

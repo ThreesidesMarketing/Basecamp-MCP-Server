@@ -2,7 +2,7 @@
 
 This project provides a **FastMCP-powered** integration for Basecamp 3, allowing AI clients to interact with Basecamp directly through the MCP protocol.
 
-✅ **Migration Complete:** Successfully migrated to official Anthropic FastMCP framework with **100% feature parity** (all 75 tools)
+✅ **Migration Complete:** Successfully migrated to official Anthropic FastMCP framework with **100% feature parity** (all 76 tools)
 🚀 **Ready for Production:** Full protocol compliance with MCP 2025-06-18
 
 ## Quick Setup
@@ -73,7 +73,7 @@ This server works with **Cursor**, **Codex**, and **Claude Desktop**. Choose you
 6. **Verify in Cursor:**
    - Go to Cursor Settings → MCP
    - You should see "basecamp" with a **green checkmark**
-   - Available tools: **75 tools** for complete Basecamp control
+   - Available tools: **76 tools** for complete Basecamp control
 
 ### Test Your Setup
 
@@ -83,7 +83,7 @@ echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":
 {"jsonrpc":"2.0","method":"notifications/initialized","params":{}}
 {"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' | python basecamp_fastmcp.py
 
-# Run automated tests  
+# Run automated tests
 python -m pytest tests/ -v
 ```
 
@@ -172,7 +172,7 @@ Based on the [official MCP quickstart guide](https://modelcontextprotocol.io/qui
 
 4. **Verify in Claude Desktop:**
    - Look for the "Search and tools" icon (🔍) in the chat interface
-   - You should see "basecamp" listed with all 75 tools available
+   - You should see "basecamp" listed with all 76 tools available
    - Toggle the tools on to enable Basecamp integration
 
 ### Claude Desktop Configuration
@@ -180,7 +180,7 @@ Based on the [official MCP quickstart guide](https://modelcontextprotocol.io/qui
 The configuration is automatically created at:
 
 - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-- **Windows**: `~/AppData/Roaming/Claude/claude_desktop_config.json`  
+- **Windows**: `~/AppData/Roaming/Claude/claude_desktop_config.json`
 - **Linux**: `~/.config/claude-desktop/claude_desktop_config.json`
 
 Example configuration generated:
@@ -345,8 +345,8 @@ Ask Cursor things like:
 
 The project uses the **official Anthropic FastMCP framework** for maximum reliability and compatibility:
 
-1. **FastMCP Server** (`basecamp_fastmcp.py`) - Official MCP SDK with 75 tools, compatible with Cursor, Codex, and Claude Desktop
-2. **OAuth App** (`oauth_app.py`) - Handles OAuth 2.0 flow with Basecamp  
+1. **FastMCP Server** (`basecamp_fastmcp.py`) - Official MCP SDK with 76 tools, compatible with Cursor, Codex, and Claude Desktop
+2. **OAuth App** (`oauth_app.py`) - Handles OAuth 2.0 flow with Basecamp
 3. **Token Storage** (`token_storage.py`) - Securely stores OAuth tokens
 4. **Basecamp Client** (`basecamp_client.py`) - Basecamp API client library
 5. **Search Utilities** (`search_utils.py`) - Search across Basecamp resources
@@ -385,7 +385,7 @@ uv venv --python 3.12 venv && source venv/bin/activate && uv pip install -r requ
 
 **Problem: Authentication fails**
 
-```bash  
+```bash
 # Check OAuth flow:
 python oauth_app.py
 # Visit http://localhost:8000 and complete login
@@ -399,18 +399,18 @@ python oauth_app.py
 
 ```json
 {
-    "mcpServers": {
-        "basecamp": {
-            "command": "/full/path/to/your/project/venv/bin/python",
-            "args": ["/full/path/to/your/project/basecamp_fastmcp.py"],
-            "cwd": "/full/path/to/your/project",
-            "env": {
-                "PYTHONPATH": "/full/path/to/your/project",
-                "VIRTUAL_ENV": "/full/path/to/your/project/venv",
-                "BASECAMP_ACCOUNT_ID": "your_account_id"
-            }
-        }
+  "mcpServers": {
+    "basecamp": {
+      "command": "/full/path/to/your/project/venv/bin/python",
+      "args": ["/full/path/to/your/project/basecamp_fastmcp.py"],
+      "cwd": "/full/path/to/your/project",
+      "env": {
+        "PYTHONPATH": "/full/path/to/your/project",
+        "VIRTUAL_ENV": "/full/path/to/your/project/venv",
+        "BASECAMP_ACCOUNT_ID": "your_account_id"
+      }
     }
+  }
 }
 ```
 

@@ -156,7 +156,7 @@ async def get_project(project_id: str) -> Dict[str, Any]:
         }
 
 @mcp.tool()
-async def search_basecamp(query: str, project_id: Optional[str] = None) -> Dict[str, Any]:
+async def search_basecamp(query: str, project_id: str = "") -> Dict[str, Any]:
     """Search across Basecamp projects, todos, and messages.
     
     Args:
@@ -291,12 +291,12 @@ async def get_todo(project_id: str, todo_id: str) -> Dict[str, Any]:
 
 @mcp.tool()
 async def create_todo(project_id: str, todolist_id: str, content: str, 
-                     description: Optional[str] = None, 
-                     assignee_ids: Optional[List[str]] = None,
-                     completion_subscriber_ids: Optional[List[str]] = None, 
+                     description: str = "", 
+                     assignee_ids: List[str] = [],
+                     completion_subscriber_ids: List[str] = [], 
                      notify: bool = False, 
-                     due_on: Optional[str] = None, 
-                     starts_on: Optional[str] = None) -> Dict[str, Any]:
+                     due_on: str = "", 
+                     starts_on: str = "") -> Dict[str, Any]:
     """Create a new todo item in a todo list.
     
     Args:
@@ -315,16 +315,23 @@ async def create_todo(project_id: str, todolist_id: str, content: str,
         return _get_auth_error_response()
     
     try:
+        # Convert empty strings and empty lists to None
+        desc = description if description else None
+        assignees = assignee_ids if assignee_ids else None
+        subscribers = completion_subscriber_ids if completion_subscriber_ids else None
+        due = due_on if due_on else None
+        starts = starts_on if starts_on else None
+        
         # Use lambda to properly handle keyword arguments
         todo = await _run_sync(
             lambda: client.create_todo(
                 project_id, todolist_id, content,
-                description=description,
-                assignee_ids=assignee_ids,
-                completion_subscriber_ids=completion_subscriber_ids,
+                description=desc,
+                assignee_ids=assignees,
+                completion_subscriber_ids=subscribers,
                 notify=notify,
-                due_on=due_on,
-                starts_on=starts_on
+                due_on=due,
+                starts_on=starts
             )
         )
         return {
@@ -346,13 +353,13 @@ async def create_todo(project_id: str, todolist_id: str, content: str,
 
 @mcp.tool()
 async def update_todo(project_id: str, todo_id: str, 
-                     content: Optional[str] = None,
-                     description: Optional[str] = None, 
-                     assignee_ids: Optional[List[str]] = None,
-                     completion_subscriber_ids: Optional[List[str]] = None,
-                     notify: Optional[bool] = None,
-                     due_on: Optional[str] = None, 
-                     starts_on: Optional[str] = None) -> Dict[str, Any]:
+                     content: str = "__NOT_SET__",
+                     description: str = "__NOT_SET__", 
+                     assignee_ids: List[str] = ["__NOT_SET__"],
+                     completion_subscriber_ids: List[str] = ["__NOT_SET__"],
+                     notify: bool = False,
+                     due_on: str = "__NOT_SET__", 
+                     starts_on: str = "__NOT_SET__") -> Dict[str, Any]:
     """Update an existing todo item.
     
     Args:
@@ -370,10 +377,17 @@ async def update_todo(project_id: str, todo_id: str,
         return _get_auth_error_response()
     
     try:
+        # Convert sentinel values to None
+        content_val = None if content == "__NOT_SET__" else content
+        desc_val = None if description == "__NOT_SET__" else description
+        assignees_val = None if assignee_ids == ["__NOT_SET__"] else assignee_ids
+        subscribers_val = None if completion_subscriber_ids == ["__NOT_SET__"] else completion_subscriber_ids
+        due_val = None if due_on == "__NOT_SET__" else due_on
+        starts_val = None if starts_on == "__NOT_SET__" else starts_on
+        
         # Guard against no-op updates
-        if all(v is None for v in [content, description, assignee_ids,
-                                   completion_subscriber_ids, notify,
-                                   due_on, starts_on]):
+        if all(v is None for v in [content_val, desc_val, assignees_val,
+                                   subscribers_val, due_val, starts_val]) and notify == False:
             return {
                 "error": "Invalid input",
                 "message": "At least one field to update must be provided"
@@ -382,13 +396,13 @@ async def update_todo(project_id: str, todo_id: str,
         todo = await _run_sync(
             lambda: client.update_todo(
                 project_id, todo_id,
-                content=content,
-                description=description,
-                assignee_ids=assignee_ids,
-                completion_subscriber_ids=completion_subscriber_ids,
+                content=content_val,
+                description=desc_val,
+                assignee_ids=assignees_val,
+                completion_subscriber_ids=subscribers_val,
                 notify=notify,
-                due_on=due_on,
-                starts_on=starts_on
+                due_on=due_val,
+                starts_on=starts_val
             )
         )
         return {
@@ -531,7 +545,7 @@ async def reposition_todo(
     project_id: str,
     todo_id: str,
     position: int,
-    parent_id: Optional[str] = None,
+    parent_id: str = "",
 ) -> Dict[str, Any]:
     """Reposition a todo within its list, or move it to another list or group.
 
@@ -551,7 +565,7 @@ async def reposition_todo(
 
     try:
         await _run_sync(
-            lambda: client.reposition_todo(project_id, todo_id, position, parent_id)
+            lambda: client.reposition_todo(project_id, todo_id, position, parent_id if parent_id else None)
         )
         return {"status": "success", "message": f"Todo {todo_id} moved to position {position}"}
     except Exception as e:
@@ -721,7 +735,7 @@ async def get_message_board(project_id: str) -> Dict[str, Any]:
         }
 
 @mcp.tool()
-async def get_messages(project_id: str, message_board_id: Optional[str] = None) -> Dict[str, Any]:
+async def get_messages(project_id: str, message_board_id: str = "") -> Dict[str, Any]:
     """Get all messages from a project's message board.
 
     Args:
@@ -733,7 +747,7 @@ async def get_messages(project_id: str, message_board_id: Optional[str] = None) 
         return _get_auth_error_response()
 
     try:
-        messages = await _run_sync(client.get_messages, project_id, message_board_id)
+        messages = await _run_sync(client.get_messages, project_id, message_board_id if message_board_id else None)
         return {
             "status": "success",
             "messages": messages,
@@ -815,8 +829,8 @@ async def get_message_categories(project_id: str) -> Dict[str, Any]:
 
 @mcp.tool()
 async def create_message(project_id: str, subject: str, content: str,
-                         message_board_id: Optional[str] = None,
-                         category_id: Optional[str] = None) -> Dict[str, Any]:
+                         message_board_id: str = "",
+                         category_id: str = "") -> Dict[str, Any]:
     """Create a new message on a project's message board.
 
     Args:
@@ -834,8 +848,8 @@ async def create_message(project_id: str, subject: str, content: str,
         message = await _run_sync(
             lambda: client.create_message(
                 project_id, subject, content,
-                message_board_id=message_board_id,
-                category_id=category_id
+                message_board_id=message_board_id if message_board_id else None,
+                category_id=category_id if category_id else None
             )
         )
         return {
@@ -888,7 +902,7 @@ async def get_inbox(project_id: str) -> Dict[str, Any]:
 
 
 @mcp.tool()
-async def get_forwards(project_id: str, inbox_id: Optional[str] = None) -> Dict[str, Any]:
+async def get_forwards(project_id: str, inbox_id: str = "") -> Dict[str, Any]:
     """Get all forwarded emails from a project's inbox.
 
     Args:
@@ -900,7 +914,7 @@ async def get_forwards(project_id: str, inbox_id: Optional[str] = None) -> Dict[
         return _get_auth_error_response()
 
     try:
-        forwards = await _run_sync(client.get_forwards, project_id, inbox_id)
+        forwards = await _run_sync(client.get_forwards, project_id, inbox_id if inbox_id else None)
         return {
             "status": "success",
             "forwards": forwards,
@@ -1170,7 +1184,7 @@ async def get_cards(project_id: str, column_id: str) -> Dict[str, Any]:
         }
 
 @mcp.tool()
-async def create_card(project_id: str, column_id: str, title: str, content: Optional[str] = None, due_on: Optional[str] = None, notify: bool = False) -> Dict[str, Any]:
+async def create_card(project_id: str, column_id: str, title: str, content: str = "", due_on: str = "", notify: bool = False) -> Dict[str, Any]:
     """Create a new card in a column.
     
     Args:
@@ -1186,7 +1200,7 @@ async def create_card(project_id: str, column_id: str, title: str, content: Opti
         return _get_auth_error_response()
     
     try:
-        card = await _run_sync(client.create_card, project_id, column_id, title, content, due_on, notify)
+        card = await _run_sync(client.create_card, project_id, column_id, title, content if content else None, due_on if due_on else None, notify)
         return {
             "status": "success",
             "card": card,
@@ -1358,7 +1372,7 @@ async def get_card(project_id: str, card_id: str) -> Dict[str, Any]:
         }
 
 @mcp.tool()
-async def update_card(project_id: str, card_id: str, title: Optional[str] = None, content: Optional[str] = None, due_on: Optional[str] = None, assignee_ids: Optional[List[str]] = None) -> Dict[str, Any]:
+async def update_card(project_id: str, card_id: str, title: str = "__NOT_SET__", content: str = "__NOT_SET__", due_on: str = "__NOT_SET__", assignee_ids: List[str] = ["__NOT_SET__"]) -> Dict[str, Any]:
     """Update a card.
     
     Args:
@@ -1374,7 +1388,12 @@ async def update_card(project_id: str, card_id: str, title: Optional[str] = None
         return _get_auth_error_response()
     
     try:
-        card = await _run_sync(client.update_card, project_id, card_id, title, content, due_on, assignee_ids)
+        title_val = None if title == "__NOT_SET__" else title
+        content_val = None if content == "__NOT_SET__" else content
+        due_on_val = None if due_on == "__NOT_SET__" else due_on
+        assignee_ids_val = None if assignee_ids == ["__NOT_SET__"] else assignee_ids
+        
+        card = await _run_sync(client.update_card, project_id, card_id, title_val, content_val, due_on_val, assignee_ids_val)
         return {
             "status": "success",
             "card": card,
@@ -1393,7 +1412,7 @@ async def update_card(project_id: str, card_id: str, title: Optional[str] = None
         }
 
 @mcp.tool()
-async def get_daily_check_ins(project_id: str, page: Optional[int] = None) -> Dict[str, Any]:
+async def get_daily_check_ins(project_id: str, page: int = 0) -> Dict[str, Any]:
     """Get project's daily checking questionnaire.
     
     Args:
@@ -1405,9 +1424,10 @@ async def get_daily_check_ins(project_id: str, page: Optional[int] = None) -> Di
         return _get_auth_error_response()
     
     try:
-        if page is not None and not isinstance(page, int):
-            page = 1
-        answers = await _run_sync(client.get_daily_check_ins, project_id, page=page or 1)
+        page_val = page if page > 0 else None
+        if page_val is not None and not isinstance(page_val, int):
+            page_val = 1
+        answers = await _run_sync(client.get_daily_check_ins, project_id, page=page_val or 1)
         return {
             "status": "success",
             "campfire_lines": answers,
@@ -1426,7 +1446,7 @@ async def get_daily_check_ins(project_id: str, page: Optional[int] = None) -> Di
         }
 
 @mcp.tool()
-async def get_question_answers(project_id: str, question_id: str, page: Optional[int] = None) -> Dict[str, Any]:
+async def get_question_answers(project_id: str, question_id: str, page: int = 0) -> Dict[str, Any]:
     """Get answers on daily check-in question.
     
     Args:
@@ -1439,9 +1459,10 @@ async def get_question_answers(project_id: str, question_id: str, page: Optional
         return _get_auth_error_response()
     
     try:
-        if page is not None and not isinstance(page, int):
-            page = 1
-        answers = await _run_sync(client.get_question_answers, project_id, question_id, page=page or 1)
+        page_val = page if page > 0 else None
+        if page_val is not None and not isinstance(page_val, int):
+            page_val = 1
+        answers = await _run_sync(client.get_question_answers, project_id, question_id, page=page_val or 1)
         return {
             "status": "success",
             "campfire_lines": answers,
@@ -1740,7 +1761,7 @@ async def get_card_steps(project_id: str, card_id: str) -> Dict[str, Any]:
         }
 
 @mcp.tool()
-async def create_card_step(project_id: str, card_id: str, title: str, due_on: Optional[str] = None, assignee_ids: Optional[List[str]] = None) -> Dict[str, Any]:
+async def create_card_step(project_id: str, card_id: str, title: str, due_on: str = "", assignee_ids: List[str] = []) -> Dict[str, Any]:
     """Create a new step (sub-task) for a card.
     
     Args:
@@ -1755,7 +1776,7 @@ async def create_card_step(project_id: str, card_id: str, title: str, due_on: Op
         return _get_auth_error_response()
     
     try:
-        step = await _run_sync(client.create_card_step, project_id, card_id, title, due_on, assignee_ids)
+        step = await _run_sync(client.create_card_step, project_id, card_id, title, due_on if due_on else None, assignee_ids if assignee_ids else None)
         return {
             "status": "success",
             "step": step,
@@ -1804,7 +1825,7 @@ async def get_card_step(project_id: str, step_id: str) -> Dict[str, Any]:
         }
 
 @mcp.tool()
-async def update_card_step(project_id: str, step_id: str, title: Optional[str] = None, due_on: Optional[str] = None, assignee_ids: Optional[List[str]] = None) -> Dict[str, Any]:
+async def update_card_step(project_id: str, step_id: str, title: str = "__NOT_SET__", due_on: str = "__NOT_SET__", assignee_ids: List[str] = ["__NOT_SET__"]) -> Dict[str, Any]:
     """Update a card step.
     
     Args:
@@ -1819,7 +1840,11 @@ async def update_card_step(project_id: str, step_id: str, title: Optional[str] =
         return _get_auth_error_response()
     
     try:
-        step = await _run_sync(client.update_card_step, project_id, step_id, title, due_on, assignee_ids)
+        title_val = None if title == "__NOT_SET__" else title
+        due_on_val = None if due_on == "__NOT_SET__" else due_on
+        assignee_ids_val = None if assignee_ids == ["__NOT_SET__"] else assignee_ids
+        
+        step = await _run_sync(client.update_card_step, project_id, step_id, title_val, due_on_val, assignee_ids_val)
         return {
             "status": "success",
             "step": step,
@@ -1929,7 +1954,7 @@ async def uncomplete_card_step(project_id: str, step_id: str) -> Dict[str, Any]:
 
 # Attachments, Events, and Webhooks
 @mcp.tool()
-async def create_attachment(file_path: str, name: str, content_type: Optional[str] = None) -> Dict[str, Any]:
+async def create_attachment(file_path: str, name: str, content_type: str = "") -> Dict[str, Any]:
     """Upload a file as an attachment.
     
     Args:
@@ -2021,7 +2046,7 @@ async def get_webhooks(project_id: str) -> Dict[str, Any]:
         }
 
 @mcp.tool()
-async def create_webhook(project_id: str, payload_url: str, types: Optional[List[str]] = None) -> Dict[str, Any]:
+async def create_webhook(project_id: str, payload_url: str, types: List[str] = []) -> Dict[str, Any]:
     """Create a webhook.
     
     Args:
@@ -2034,7 +2059,7 @@ async def create_webhook(project_id: str, payload_url: str, types: Optional[List
         return _get_auth_error_response()
     
     try:
-        hook = await _run_sync(client.create_webhook, project_id, payload_url, types)
+        hook = await _run_sync(client.create_webhook, project_id, payload_url, types if types else None)
         return {
             "status": "success",
             "webhook": hook
@@ -2176,7 +2201,7 @@ async def create_document(project_id: str, vault_id: str, title: str, content: s
         }
 
 @mcp.tool()
-async def update_document(project_id: str, document_id: str, title: Optional[str] = None, content: Optional[str] = None) -> Dict[str, Any]:
+async def update_document(project_id: str, document_id: str, title: str = "__NOT_SET__", content: str = "__NOT_SET__") -> Dict[str, Any]:
     """Update a document.
     
     Args:
@@ -2190,7 +2215,10 @@ async def update_document(project_id: str, document_id: str, title: Optional[str
         return _get_auth_error_response()
     
     try:
-        doc = await _run_sync(client.update_document, project_id, document_id, title, content)
+        title_val = None if title == "__NOT_SET__" else title
+        content_val = None if content == "__NOT_SET__" else content
+        
+        doc = await _run_sync(client.update_document, project_id, document_id, title_val, content_val)
         return {
             "status": "success",
             "document": doc
@@ -2239,7 +2267,7 @@ async def trash_document(project_id: str, document_id: str) -> Dict[str, Any]:
 
 # Upload Management
 @mcp.tool()
-async def get_uploads(project_id: str, vault_id: Optional[str] = None) -> Dict[str, Any]:
+async def get_uploads(project_id: str, vault_id: str = "") -> Dict[str, Any]:
     """List uploads in a project or vault.
     
     Args:
@@ -2251,7 +2279,7 @@ async def get_uploads(project_id: str, vault_id: Optional[str] = None) -> Dict[s
         return _get_auth_error_response()
     
     try:
-        uploads = await _run_sync(client.get_uploads, project_id, vault_id)
+        uploads = await _run_sync(client.get_uploads, project_id, vault_id if vault_id else None)
         return {
             "status": "success",
             "uploads": uploads,
@@ -2325,7 +2353,7 @@ async def get_todolist(project_id: str, todolist_id: str) -> Dict[str, Any]:
 async def create_todolist(
     project_id: str,
     name: str,
-    description: Optional[str] = None,
+    description: str = "",
 ) -> Dict[str, Any]:
     """Create a new todo list in a project.
 
@@ -2340,7 +2368,7 @@ async def create_todolist(
 
     try:
         todolist = await _run_sync(
-            lambda: client.create_todolist(project_id, name, description)
+            lambda: client.create_todolist(project_id, name, description if description else None)
         )
         return {"status": "success", "todolist": todolist}
     except Exception as e:
@@ -2355,7 +2383,7 @@ async def update_todolist(
     project_id: str,
     todolist_id: str,
     name: str,
-    description: Optional[str] = None,
+    description: str = "__NOT_SET__",
 ) -> Dict[str, Any]:
     """Update an existing todo list.
 
@@ -2372,8 +2400,9 @@ async def update_todolist(
         return _get_auth_error_response()
 
     try:
+        desc_val = None if description == "__NOT_SET__" else description
         todolist = await _run_sync(
-            lambda: client.update_todolist(project_id, todolist_id, name, description)
+            lambda: client.update_todolist(project_id, todolist_id, name, desc_val)
         )
         return {"status": "success", "todolist": todolist}
     except Exception as e:
@@ -2436,7 +2465,7 @@ async def create_todolist_group(
     project_id: str,
     todolist_id: str,
     name: str,
-    color: Optional[str] = None,
+    color: str = "",
 ) -> Dict[str, Any]:
     """Create a new group inside a todo list.
 
@@ -2455,7 +2484,7 @@ async def create_todolist_group(
 
     try:
         group = await _run_sync(
-            lambda: client.create_todolist_group(project_id, todolist_id, name, color)
+            lambda: client.create_todolist_group(project_id, todolist_id, name, color if color else None)
         )
         return {"status": "success", "group": group}
     except Exception as e:
@@ -2493,6 +2522,39 @@ async def reposition_todolist_group(
         if "401" in str(e) and "expired" in str(e).lower():
             return {"error": "OAuth token expired", "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."}
         return {"error": "Execution error", "message": str(e)}
+
+
+@mcp.tool()
+async def search_projects(query: str) -> Dict[str, Any]:
+    """Search projects by name or description.
+
+    Args:
+        query: Search query to match against project names and descriptions
+    """
+    client = await _get_basecamp_client()
+    if not client:
+        return _get_auth_error_response()
+
+    try:
+        search = BasecampSearch(client=client)
+        projects = await _run_sync(search.search_projects, query)
+        return {
+            "status": "success",
+            "query": query,
+            "projects": projects,
+            "count": len(projects)
+        }
+    except Exception as e:
+        logger.error(f"Error searching projects: {e}")
+        if "401" in str(e) and "expired" in str(e).lower():
+            return {
+                "error": "OAuth token expired",
+                "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."
+            }
+        return {
+            "error": "Execution error",
+            "message": str(e)
+        }
 
 
 # 🎉 COMPLETE FastMCP server with ALL tools migrated!

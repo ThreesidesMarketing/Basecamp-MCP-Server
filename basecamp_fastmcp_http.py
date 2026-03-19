@@ -201,7 +201,6 @@ async def search_basecamp(query: str, project_id: str = "") -> Dict[str, Any]:
 @mcp.tool()
 async def get_todolists(project_id, todoset_id=""):
     """Get todo lists for a project, optionally filtered by todoset.
-    
     Args:
         project_id: The project ID
         todoset_id: Optional todoset ID to filter todolists. If empty, returns todolists from all todosets.

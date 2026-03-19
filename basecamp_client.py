@@ -213,19 +213,28 @@ class BasecampClient:
             else:
                 raise Exception(f"Failed to get todolists: {response.status_code} - {response.text}")
         else:
-            # Get todolists from all todosets - for backward compatibility, use legacy approach
-            # TODO: Implement proper multiple todosets support
-            todoset = self.get_todoset(project_id)  # Legacy method
-            todoset_id = todoset['id']
-            endpoint = f'buckets/{project_id}/todosets/{todoset_id}/todolists.json'
-            response = self.get(endpoint)
-            if response.status_code == 200:
-                todolists = response.json()
-                for todolist in todolists:
-                    todolist['todoset'] = {'id': todoset_id, 'name': todoset.get('name', 'Unknown')}
-                return todolists
-            else:
-                raise Exception(f"Failed to get todolists: {response.status_code} - {response.text}")
+            # Get todolists from all todosets
+            todosets = self.get_todosets(project_id)
+            all_todolists = []
+            
+            for todoset in todosets:
+                todoset_id = todoset['id']
+                endpoint = f'buckets/{project_id}/todosets/{todoset_id}/todolists.json'
+                response = self.get(endpoint)
+                if response.status_code == 200:
+                    todolists = response.json()
+                    # Add todoset metadata to each todolist
+                    for todolist in todolists:
+                        todolist['todoset'] = {
+                            'id': todoset_id, 
+                            'name': todoset.get('title', todoset.get('name', 'Unknown'))
+                        }
+                    all_todolists.extend(todolists)
+                else:
+                    # Log warning but continue with other todosets
+                    print(f"Warning: Failed to get todolists for todoset {todoset_id}: {response.status_code} - {response.text}")
+            
+            return all_todolists
 
     def get_todolist(self, project_id, todolist_id):
         """Get a specific todolist."""

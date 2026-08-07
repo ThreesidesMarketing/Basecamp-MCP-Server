@@ -2565,6 +2565,36 @@ async def update_todolist(
 
 
 @mcp.tool()
+async def reposition_todolist(
+    project_id: str, todolist_id: str, position: int
+) -> Dict[str, Any]:
+    """Reposition a to-do list within its to-do set.
+
+    Args:
+        project_id: The project ID
+        todolist_id: The todo list ID
+        position: New 1-based position among incomplete lists
+    """
+    client = await _get_basecamp_client()
+    if not client:
+        return _get_auth_error_response()
+
+    if position < 1:
+        return {"error": "Invalid input", "message": "position must be >= 1"}
+
+    try:
+        await _run_sync(
+            lambda: client.reposition_todolist(project_id, todolist_id, position)
+        )
+        return {"status": "success", "message": f"Todolist {todolist_id} repositioned to position {position}"}
+    except Exception as e:
+        logger.error(f"Error repositioning todolist {todolist_id}: {e}")
+        if "401" in str(e) and "expired" in str(e).lower():
+            return {"error": "OAuth token expired", "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."}
+        return {"error": "Execution error", "message": str(e)}
+
+
+@mcp.tool()
 async def trash_todolist(project_id: str, todolist_id: str) -> Dict[str, Any]:
     """Move a todo list to the trash.
 

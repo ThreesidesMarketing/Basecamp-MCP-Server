@@ -299,7 +299,7 @@ class BasecampClient:
         """
         if todoset_id:
             # Get todolists from specific todoset
-            endpoint = f'buckets/{project_id}/todosets/{todoset_id}/todolists.json'
+            endpoint = f'todosets/{todoset_id}/todolists.json'
             response = self.get(endpoint)
             if response.status_code == 200:
                 return response.json()
@@ -312,7 +312,7 @@ class BasecampClient:
             
             for todoset in todosets:
                 todoset_id = todoset['id']
-                endpoint = f'buckets/{project_id}/todosets/{todoset_id}/todolists.json'
+                endpoint = f'todosets/{todoset_id}/todolists.json'
                 response = self.get(endpoint)
                 if response.status_code == 200:
                     todolists = response.json()
@@ -331,7 +331,7 @@ class BasecampClient:
 
     def get_todolist(self, project_id, todolist_id):
         """Get a specific todolist."""
-        response = self.get(f'buckets/{project_id}/todolists/{todolist_id}.json')
+        response = self.get(f'todolists/{todolist_id}.json')
         if response.status_code == 200:
             return response.json()
         else:
@@ -350,7 +350,7 @@ class BasecampClient:
         """
         todoset = self.get_todoset(project_id)
         todoset_id = todoset['id']
-        endpoint = f'buckets/{project_id}/todosets/{todoset_id}/todolists.json'
+        endpoint = f'todosets/{todoset_id}/todolists.json'
         data = {'name': name}
         if description is not None:
             data['description'] = description
@@ -372,7 +372,7 @@ class BasecampClient:
         Returns:
             dict: The updated todolist object
         """
-        endpoint = f'buckets/{project_id}/todolists/{todolist_id}.json'
+        endpoint = f'todolists/{todolist_id}.json'
         data = {'name': name}
         if description is not None:
             data['description'] = description
@@ -381,6 +381,24 @@ class BasecampClient:
             return response.json()
         else:
             raise Exception(f"Failed to update todolist: {response.status_code} - {response.text}")
+
+    def reposition_todolist(self, project_id, todolist_id, position):
+        """Reposition a to-do list within its to-do set.
+
+        Args:
+            project_id (str): Project ID
+            todolist_id (str): Todolist ID
+            position (int): New 1-based position among incomplete lists
+
+        Returns:
+            bool: True if successful
+        """
+        endpoint = f'todosets/todolists/{todolist_id}/position.json'
+        response = self.put(endpoint, {'position': position})
+        if response.status_code == 204:
+            return True
+        else:
+            raise Exception(f"Failed to reposition todolist: {response.status_code} - {response.text}")
 
     def trash_todolist(self, project_id, todolist_id):
         """Move a todolist to the trash.
@@ -392,7 +410,7 @@ class BasecampClient:
         Returns:
             bool: True if successful
         """
-        endpoint = f'buckets/{project_id}/recordings/{todolist_id}/status/trashed.json'
+        endpoint = f'recordings/{todolist_id}/status/trashed.json'
         response = self.put(endpoint)
         if response.status_code == 204:
             return True
@@ -643,7 +661,7 @@ class BasecampClient:
         Returns:
             list: List of group objects
         """
-        endpoint = f'buckets/{project_id}/todolists/{todolist_id}/groups.json'
+        endpoint = f'todolists/{todolist_id}/groups.json'
         all_groups = []
         page = 1
         while True:
@@ -671,7 +689,7 @@ class BasecampClient:
         Returns:
             dict: The created group object
         """
-        endpoint = f'buckets/{project_id}/todolists/{todolist_id}/groups.json'
+        endpoint = f'todolists/{todolist_id}/groups.json'
         data = {'name': name}
         if color is not None:
             data['color'] = color
@@ -692,7 +710,7 @@ class BasecampClient:
         Returns:
             bool: True if successful
         """
-        endpoint = f'buckets/{project_id}/todolists/groups/{group_id}/position.json'
+        endpoint = f'todolists/groups/{group_id}/position.json'
         response = self.put(endpoint, {'position': position})
         if response.status_code == 204:
             return True

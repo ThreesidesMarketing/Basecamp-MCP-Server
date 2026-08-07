@@ -447,5 +447,87 @@ class TestTodos(unittest.TestCase):
         mock_delete.assert_called_once_with('todos/2/completion.json')
 
 
+class TestTodolists(unittest.TestCase):
+    def setUp(self):
+        self.client = make_client()
+
+    @patch.object(BasecampClient, 'get')
+    def test_get_todolist_uses_flat_route(self, mock_get):
+        mock_get.return_value = make_response(200, {"id": 2})
+
+        result = self.client.get_todolist('999', '2')
+
+        self.assertEqual(result, {"id": 2})
+        mock_get.assert_called_once_with('todolists/2.json')
+
+    @patch.object(BasecampClient, 'post')
+    @patch.object(BasecampClient, 'get')
+    def test_create_todolist_uses_flat_route(self, mock_get, mock_post):
+        mock_get.return_value = make_response(200, {"dock": [{"name": "todoset", "id": 3}]})
+        mock_post.return_value = make_response(201, {"id": 2})
+
+        result = self.client.create_todolist('999', 'New list')
+
+        self.assertEqual(result, {"id": 2})
+        endpoint = mock_post.call_args[0][0]
+        self.assertEqual(endpoint, 'todosets/3/todolists.json')
+
+    @patch.object(BasecampClient, 'put')
+    def test_update_todolist_uses_flat_route(self, mock_put):
+        mock_put.return_value = make_response(200, {"id": 2})
+
+        result = self.client.update_todolist('999', '2', 'Renamed')
+
+        self.assertEqual(result, {"id": 2})
+        mock_put.assert_called_once_with('todolists/2.json', {'name': 'Renamed'})
+
+    @patch.object(BasecampClient, 'put')
+    def test_reposition_todolist_uses_flat_route(self, mock_put):
+        mock_put.return_value = make_response(204)
+
+        result = self.client.reposition_todolist('999', '2', 1)
+
+        self.assertTrue(result)
+        mock_put.assert_called_once_with('todosets/todolists/2/position.json', {'position': 1})
+
+    @patch.object(BasecampClient, 'put')
+    def test_trash_todolist_uses_flat_route(self, mock_put):
+        mock_put.return_value = make_response(204)
+
+        result = self.client.trash_todolist('999', '2')
+
+        self.assertTrue(result)
+        mock_put.assert_called_once_with('recordings/2/status/trashed.json')
+
+    @patch.object(BasecampClient, 'get')
+    def test_get_todolist_groups_uses_flat_route(self, mock_get):
+        mock_get.return_value = make_response(200, [{"id": 5}])
+
+        result = self.client.get_todolist_groups('999', '2')
+
+        self.assertEqual(result, [{"id": 5}])
+        endpoint = mock_get.call_args[0][0]
+        self.assertEqual(endpoint, 'todolists/2/groups.json')
+
+    @patch.object(BasecampClient, 'post')
+    def test_create_todolist_group_uses_flat_route(self, mock_post):
+        mock_post.return_value = make_response(201, {"id": 5})
+
+        result = self.client.create_todolist_group('999', '2', 'Phase 1')
+
+        self.assertEqual(result, {"id": 5})
+        endpoint = mock_post.call_args[0][0]
+        self.assertEqual(endpoint, 'todolists/2/groups.json')
+
+    @patch.object(BasecampClient, 'put')
+    def test_reposition_todolist_group_uses_flat_route(self, mock_put):
+        mock_put.return_value = make_response(204)
+
+        result = self.client.reposition_todolist_group('999', '5', 1)
+
+        self.assertTrue(result)
+        mock_put.assert_called_once_with('todolists/groups/5/position.json', {'position': 1})
+
+
 if __name__ == '__main__':
     unittest.main()

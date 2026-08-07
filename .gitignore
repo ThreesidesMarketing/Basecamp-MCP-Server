@@ -70,3 +70,5 @@ reference/
 local_queries/
 
 AGENTS.md
+# Git worktrees (local scratch, not committed)
+.worktrees/

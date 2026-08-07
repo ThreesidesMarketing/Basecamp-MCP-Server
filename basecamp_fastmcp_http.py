@@ -2843,6 +2843,226 @@ async def reorder_up_next(source_id: str, position: int) -> Dict[str, Any]:
         return {"error": "Execution error", "message": str(e)}
 
 
+# People Tools
+@mcp.tool()
+async def get_people() -> Dict[str, Any]:
+    """Get all people visible to the current user across the account."""
+    client = await _get_basecamp_client()
+    if not client:
+        return _get_auth_error_response()
+
+    try:
+        people = await _run_sync(client.get_people)
+        return {"status": "success", "people": people, "count": len(people)}
+    except Exception as e:
+        logger.error(f"Error getting people: {e}")
+        if "401" in str(e) and "expired" in str(e).lower():
+            return {"error": "OAuth token expired", "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."}
+        return {"error": "Execution error", "message": str(e)}
+
+
+@mcp.tool()
+async def get_project_people(project_id: str) -> Dict[str, Any]:
+    """Get all active people on a specific project.
+
+    Args:
+        project_id: The project ID
+    """
+    client = await _get_basecamp_client()
+    if not client:
+        return _get_auth_error_response()
+
+    try:
+        people = await _run_sync(client.get_project_people, project_id)
+        return {"status": "success", "people": people, "count": len(people)}
+    except Exception as e:
+        logger.error(f"Error getting project people for {project_id}: {e}")
+        if "401" in str(e) and "expired" in str(e).lower():
+            return {"error": "OAuth token expired", "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."}
+        return {"error": "Execution error", "message": str(e)}
+
+
+@mcp.tool()
+async def update_project_access(project_id: str, grant=None, revoke=None, create=None) -> Dict[str, Any]:
+    """Grant, revoke, or invite people to a project.
+
+    Args:
+        project_id: The project ID
+        grant: Optional list of person IDs to grant access
+        revoke: Optional list of person IDs to revoke access
+        create: Optional list of new people to invite, each a dict with 'name' and
+            'email_address', and optional 'title'/'company_name'
+    """
+    client = await _get_basecamp_client()
+    if not client:
+        return _get_auth_error_response()
+
+    if grant is None and revoke is None and create is None:
+        return {"error": "Invalid input", "message": "At least one of grant, revoke, or create must be provided"}
+
+    try:
+        result = await _run_sync(
+            lambda: client.update_project_access(project_id, grant=grant, revoke=revoke, create=create)
+        )
+        return {"status": "success", "result": result}
+    except Exception as e:
+        logger.error(f"Error updating project access for {project_id}: {e}")
+        if "401" in str(e) and "expired" in str(e).lower():
+            return {"error": "OAuth token expired", "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."}
+        return {"error": "Execution error", "message": str(e)}
+
+
+@mcp.tool()
+async def get_pingable_people() -> Dict[str, Any]:
+    """Get all people on the account who can be pinged."""
+    client = await _get_basecamp_client()
+    if not client:
+        return _get_auth_error_response()
+
+    try:
+        people = await _run_sync(client.get_pingable_people)
+        return {"status": "success", "people": people, "count": len(people)}
+    except Exception as e:
+        logger.error(f"Error getting pingable people: {e}")
+        if "401" in str(e) and "expired" in str(e).lower():
+            return {"error": "OAuth token expired", "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."}
+        return {"error": "Execution error", "message": str(e)}
+
+
+@mcp.tool()
+async def get_person(person_id: str) -> Dict[str, Any]:
+    """Get a single person's profile by ID.
+
+    Args:
+        person_id: The person ID
+    """
+    client = await _get_basecamp_client()
+    if not client:
+        return _get_auth_error_response()
+
+    try:
+        person = await _run_sync(client.get_person, person_id)
+        return {"status": "success", "person": person}
+    except Exception as e:
+        logger.error(f"Error getting person {person_id}: {e}")
+        if "401" in str(e) and "expired" in str(e).lower():
+            return {"error": "OAuth token expired", "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."}
+        return {"error": "Execution error", "message": str(e)}
+
+
+@mcp.tool()
+async def get_my_profile() -> Dict[str, Any]:
+    """Get the current user's personal profile info."""
+    client = await _get_basecamp_client()
+    if not client:
+        return _get_auth_error_response()
+
+    try:
+        profile = await _run_sync(client.get_my_profile)
+        return {"status": "success", "profile": profile}
+    except Exception as e:
+        logger.error(f"Error getting my profile: {e}")
+        if "401" in str(e) and "expired" in str(e).lower():
+            return {"error": "OAuth token expired", "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."}
+        return {"error": "Execution error", "message": str(e)}
+
+
+@mcp.tool()
+async def update_my_profile(
+    name: str = "",
+    email_address: str = "",
+    title: str = "",
+    bio: str = "",
+    location: str = "",
+    time_zone_name: str = "",
+    first_week_day: int = -1,
+    time_format: str = "",
+) -> Dict[str, Any]:
+    """Update the current user's personal profile info. Leave any field blank to keep it unchanged.
+
+    Args:
+        name: Display name
+        email_address: Email address
+        title: Job title
+        bio: Short bio
+        location: Location
+        time_zone_name: Time zone, e.g. 'America/Chicago'
+        first_week_day: 0 for Sunday, 1 for Monday. Leave as -1 to keep unchanged.
+        time_format: Time display format
+    """
+    client = await _get_basecamp_client()
+    if not client:
+        return _get_auth_error_response()
+
+    try:
+        await _run_sync(
+            lambda: client.update_my_profile(
+                name=name if name else None,
+                email_address=email_address if email_address else None,
+                title=title if title else None,
+                bio=bio if bio else None,
+                location=location if location else None,
+                time_zone_name=time_zone_name if time_zone_name else None,
+                first_week_day=first_week_day if first_week_day >= 0 else None,
+                time_format=time_format if time_format else None,
+            )
+        )
+        return {"status": "success", "message": "Profile updated successfully"}
+    except Exception as e:
+        logger.error(f"Error updating my profile: {e}")
+        if "401" in str(e) and "expired" in str(e).lower():
+            return {"error": "OAuth token expired", "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."}
+        return {"error": "Execution error", "message": str(e)}
+
+
+@mcp.tool()
+async def get_my_preferences() -> Dict[str, Any]:
+    """Get the current user's preferences."""
+    client = await _get_basecamp_client()
+    if not client:
+        return _get_auth_error_response()
+
+    try:
+        preferences = await _run_sync(client.get_my_preferences)
+        return {"status": "success", "preferences": preferences}
+    except Exception as e:
+        logger.error(f"Error getting my preferences: {e}")
+        if "401" in str(e) and "expired" in str(e).lower():
+            return {"error": "OAuth token expired", "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."}
+        return {"error": "Execution error", "message": str(e)}
+
+
+@mcp.tool()
+async def update_my_preferences(
+    time_zone_name: str = "", first_week_day: str = "", time_format: str = ""
+) -> Dict[str, Any]:
+    """Update the current user's preferences. Leave any field blank to keep it unchanged.
+
+    Args:
+        time_zone_name: Time zone name, e.g. 'America/Chicago', 'London', 'UTC'
+        first_week_day: 'Sunday' through 'Saturday'
+        time_format: 'twelve_hour' or 'twenty_four_hour'
+    """
+    client = await _get_basecamp_client()
+    if not client:
+        return _get_auth_error_response()
+
+    try:
+        preferences = await _run_sync(
+            lambda: client.update_my_preferences(
+                time_zone_name=time_zone_name if time_zone_name else None,
+                first_week_day=first_week_day if first_week_day else None,
+                time_format=time_format if time_format else None,
+            )
+        )
+        return {"status": "success", "preferences": preferences}
+    except Exception as e:
+        logger.error(f"Error updating my preferences: {e}")
+        if "401" in str(e) and "expired" in str(e).lower():
+            return {"error": "OAuth token expired", "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."}
+        return {"error": "Execution error", "message": str(e)}
+
+
 # 🎉 COMPLETE FastMCP server with ALL tools migrated!
 
 if __name__ == "__main__":

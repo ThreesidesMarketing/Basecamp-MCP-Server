@@ -213,5 +213,90 @@ class TestMyAssignments(unittest.TestCase):
         mock_post.assert_called_once_with('my/priority_moves.json', {'source_id': '123', 'position': 2})
 
 
+class TestPeople(unittest.TestCase):
+    def setUp(self):
+        self.client = make_client()
+
+    @patch.object(BasecampClient, 'get')
+    def test_get_project_people(self, mock_get):
+        mock_get.return_value = make_response(200, [{"id": 1}])
+
+        result = self.client.get_project_people('999')
+
+        self.assertEqual(result, [{"id": 1}])
+        mock_get.assert_called_once_with('projects/999/people.json')
+
+    @patch.object(BasecampClient, 'put')
+    def test_update_project_access(self, mock_put):
+        mock_put.return_value = make_response(200, {"granted": [1], "revoked": []})
+
+        result = self.client.update_project_access('999', grant=[1])
+
+        self.assertEqual(result, {"granted": [1], "revoked": []})
+        mock_put.assert_called_once_with('projects/999/people/users.json', {'grant': [1]})
+
+    def test_update_project_access_requires_a_field(self):
+        with self.assertRaises(ValueError):
+            self.client.update_project_access('999')
+
+    @patch.object(BasecampClient, 'get')
+    def test_get_pingable_people(self, mock_get):
+        mock_get.return_value = make_response(200, [{"id": 1}])
+
+        result = self.client.get_pingable_people()
+
+        self.assertEqual(result, [{"id": 1}])
+        mock_get.assert_called_once_with('circles/people.json')
+
+    @patch.object(BasecampClient, 'get')
+    def test_get_person(self, mock_get):
+        mock_get.return_value = make_response(200, {"id": 2})
+
+        result = self.client.get_person('2')
+
+        self.assertEqual(result, {"id": 2})
+        mock_get.assert_called_once_with('people/2.json')
+
+    @patch.object(BasecampClient, 'get')
+    def test_get_my_profile(self, mock_get):
+        mock_get.return_value = make_response(200, {"id": 1})
+
+        result = self.client.get_my_profile()
+
+        self.assertEqual(result, {"id": 1})
+        mock_get.assert_called_once_with('my/profile.json')
+
+    @patch.object(BasecampClient, 'put')
+    def test_update_my_profile(self, mock_put):
+        mock_put.return_value = make_response(204)
+
+        result = self.client.update_my_profile(name='New Name')
+
+        self.assertTrue(result)
+        mock_put.assert_called_once_with('my/profile.json', {'name': 'New Name'})
+
+    def test_update_my_profile_requires_a_field(self):
+        with self.assertRaises(ValueError):
+            self.client.update_my_profile()
+
+    @patch.object(BasecampClient, 'get')
+    def test_get_my_preferences(self, mock_get):
+        mock_get.return_value = make_response(200, {"time_zone_name": "UTC"})
+
+        result = self.client.get_my_preferences()
+
+        self.assertEqual(result, {"time_zone_name": "UTC"})
+        mock_get.assert_called_once_with('my/preferences.json')
+
+    @patch.object(BasecampClient, 'put')
+    def test_update_my_preferences_nests_under_person(self, mock_put):
+        mock_put.return_value = make_response(200, {"time_zone_name": "America/Chicago"})
+
+        result = self.client.update_my_preferences(time_zone_name='America/Chicago')
+
+        self.assertEqual(result, {"time_zone_name": "America/Chicago"})
+        mock_put.assert_called_once_with('my/preferences.json', {'person': {'time_zone_name': 'America/Chicago'}})
+
+
 if __name__ == '__main__':
     unittest.main()

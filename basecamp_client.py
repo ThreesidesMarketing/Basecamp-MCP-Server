@@ -710,6 +710,176 @@ class BasecampClient:
         else:
             raise Exception(f"Failed to get people: {response.status_code} - {response.text}")
 
+    def get_project_people(self, project_id):
+        """Get all active people on a project.
+
+        Args:
+            project_id: Project ID
+
+        Returns:
+            list: People with access to the project
+        """
+        response = self.get(f'projects/{project_id}/people.json')
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise Exception(f"Failed to get project people: {response.status_code} - {response.text}")
+
+    def update_project_access(self, project_id, grant=None, revoke=None, create=None):
+        """Grant, revoke, or create access to a project.
+
+        Args:
+            project_id: Project ID
+            grant (list, optional): Person IDs to grant access
+            revoke (list, optional): Person IDs to revoke access
+            create (list, optional): New people to invite, each a dict with 'name'
+                and 'email_address', and optional 'title'/'company_name'
+
+        Returns:
+            dict: The access-change result
+        """
+        data = {}
+        if grant is not None:
+            data['grant'] = grant
+        if revoke is not None:
+            data['revoke'] = revoke
+        if create is not None:
+            data['create'] = create
+
+        if not data:
+            raise ValueError("At least one of grant, revoke, or create must be provided")
+
+        endpoint = f'projects/{project_id}/people/users.json'
+        response = self.put(endpoint, data)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise Exception(f"Failed to update project access: {response.status_code} - {response.text}")
+
+    def get_pingable_people(self):
+        """Get all people on the account who can be pinged.
+
+        Returns:
+            list: Pingable people
+        """
+        response = self.get('circles/people.json')
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise Exception(f"Failed to get pingable people: {response.status_code} - {response.text}")
+
+    def get_person(self, person_id):
+        """Get a single person's profile.
+
+        Args:
+            person_id: Person ID
+
+        Returns:
+            dict: The person's profile
+        """
+        response = self.get(f'people/{person_id}.json')
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise Exception(f"Failed to get person: {response.status_code} - {response.text}")
+
+    def get_my_profile(self):
+        """Get the current user's personal info.
+
+        Returns:
+            dict: The current user's profile
+        """
+        response = self.get('my/profile.json')
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise Exception(f"Failed to get my profile: {response.status_code} - {response.text}")
+
+    def update_my_profile(self, name=None, email_address=None, title=None, bio=None,
+                           location=None, time_zone_name=None, first_week_day=None,
+                           time_format=None):
+        """Update the current user's personal info.
+
+        Args:
+            name (str, optional): Display name
+            email_address (str, optional): Email address
+            title (str, optional): Job title
+            bio (str, optional): Short bio
+            location (str, optional): Location
+            time_zone_name (str, optional): Time zone, e.g. 'America/Chicago'
+            first_week_day (int, optional): 0 for Sunday, 1 for Monday
+            time_format (str, optional): Time display format
+
+        Returns:
+            bool: True if successful
+        """
+        data = {}
+        if name is not None:
+            data['name'] = name
+        if email_address is not None:
+            data['email_address'] = email_address
+        if title is not None:
+            data['title'] = title
+        if bio is not None:
+            data['bio'] = bio
+        if location is not None:
+            data['location'] = location
+        if time_zone_name is not None:
+            data['time_zone_name'] = time_zone_name
+        if first_week_day is not None:
+            data['first_week_day'] = first_week_day
+        if time_format is not None:
+            data['time_format'] = time_format
+
+        if not data:
+            raise ValueError("No fields provided to update")
+
+        response = self.put('my/profile.json', data)
+        if response.status_code == 204:
+            return True
+        else:
+            raise Exception(f"Failed to update my profile: {response.status_code} - {response.text}")
+
+    def get_my_preferences(self):
+        """Get the current user's preferences.
+
+        Returns:
+            dict: The current user's preferences
+        """
+        response = self.get('my/preferences.json')
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise Exception(f"Failed to get my preferences: {response.status_code} - {response.text}")
+
+    def update_my_preferences(self, time_zone_name=None, first_week_day=None, time_format=None):
+        """Update the current user's preferences.
+
+        Args:
+            time_zone_name (str, optional): Time zone name, e.g. 'America/Chicago'
+            first_week_day (str, optional): 'Sunday' through 'Saturday'
+            time_format (str, optional): 'twelve_hour' or 'twenty_four_hour'
+
+        Returns:
+            dict: The updated preferences
+        """
+        person = {}
+        if time_zone_name is not None:
+            person['time_zone_name'] = time_zone_name
+        if first_week_day is not None:
+            person['first_week_day'] = first_week_day
+        if time_format is not None:
+            person['time_format'] = time_format
+
+        if not person:
+            raise ValueError("No fields provided to update")
+
+        response = self.put('my/preferences.json', {'person': person})
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise Exception(f"Failed to update my preferences: {response.status_code} - {response.text}")
+
     # Campfire (chat) methods
     def get_campfires(self, project_id):
         """Get the campfire for a project."""

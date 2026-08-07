@@ -900,7 +900,7 @@ async def create_message(project_id: str, subject: str, content: str,
                 category_id=category_id if category_id else None,
                 status=status if status else None,
                 subscriptions=subscriptions,
-                visible_to_clients=visible_to_clients if visible_to_clients else None
+                visible_to_clients=visible_to_clients
             )
         )
         return {
@@ -948,7 +948,7 @@ async def update_message(message_id: str, subject: str = "", content: str = "",
                 content=content if content else None,
                 category_id=category_id if category_id else None,
                 subscriptions=subscriptions,
-                notify=notify if notify else None
+                notify=notify
             )
         )
         return {"status": "success", "message": message}

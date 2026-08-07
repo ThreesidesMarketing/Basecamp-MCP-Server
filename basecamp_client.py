@@ -147,6 +147,99 @@ class BasecampClient:
         else:
             raise Exception(f"Failed to get project: {response.status_code} - {response.text}")
 
+    def create_project(self, name, description=None):
+        """Create a new project.
+
+        Args:
+            name: Project name (required)
+            description (str, optional): Project description
+
+        Returns:
+            dict: The created project
+        """
+        data = {'name': name}
+        if description is not None:
+            data['description'] = description
+        response = self.post('projects.json', data)
+        if response.status_code == 201:
+            return response.json()
+        else:
+            raise Exception(f"Failed to create project: {response.status_code} - {response.text}")
+
+    def update_project(self, project_id, name, description=None, start_date=None,
+                        end_date=None, admissions=None):
+        """Update a project's name, description, schedule, or access policy.
+
+        Args:
+            project_id: Project ID
+            name: Project name (required by the API even when unchanged)
+            description (str, optional): Project description
+            start_date (str, optional): Project start date (ISO 8601). Requires end_date.
+            end_date (str, optional): Project end date (ISO 8601). Requires start_date.
+            admissions (str, optional): One of 'invite', 'employee', 'team'
+
+        Returns:
+            dict: The updated project
+        """
+        data = {'name': name}
+        if description is not None:
+            data['description'] = description
+        if start_date is not None or end_date is not None:
+            data['schedule_attributes'] = {'start_date': start_date, 'end_date': end_date}
+        if admissions is not None:
+            data['admissions'] = admissions
+
+        response = self.put(f'projects/{project_id}.json', data)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise Exception(f"Failed to update project: {response.status_code} - {response.text}")
+
+    def archive_project(self, project_id):
+        """Archive a project.
+
+        Args:
+            project_id: Project ID
+
+        Returns:
+            bool: True if successful
+        """
+        response = self.put(f'projects/{project_id}/status/archived.json')
+        if response.status_code == 204:
+            return True
+        else:
+            raise Exception(f"Failed to archive project: {response.status_code} - {response.text}")
+
+    def unarchive_project(self, project_id):
+        """Restore a project from the archive or trash to active.
+
+        Args:
+            project_id: Project ID
+
+        Returns:
+            bool: True if successful
+        """
+        response = self.put(f'projects/{project_id}/status/active.json')
+        if response.status_code == 204:
+            return True
+        else:
+            raise Exception(f"Failed to unarchive project: {response.status_code} - {response.text}")
+
+    def trash_project(self, project_id):
+        """Move a project to the trash. Trashed projects are deleted after 30 days.
+
+        Args:
+            project_id: Project ID
+
+        Returns:
+            bool: True if successful
+        """
+        response = self.delete(f'projects/{project_id}.json')
+        if response.status_code == 204:
+            return True
+        else:
+            raise Exception(f"Failed to trash project: {response.status_code} - {response.text}")
+
     # To-do list methods
     def get_todosets(self, project_id):
         """Get all todosets for a project.

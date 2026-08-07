@@ -298,5 +298,64 @@ class TestPeople(unittest.TestCase):
         mock_put.assert_called_once_with('my/preferences.json', {'person': {'time_zone_name': 'America/Chicago'}})
 
 
+class TestProjects(unittest.TestCase):
+    def setUp(self):
+        self.client = make_client()
+
+    @patch.object(BasecampClient, 'post')
+    def test_create_project(self, mock_post):
+        mock_post.return_value = make_response(201, {"id": 1, "name": "New"})
+
+        result = self.client.create_project('New')
+
+        self.assertEqual(result, {"id": 1, "name": "New"})
+        mock_post.assert_called_once_with('projects.json', {'name': 'New'})
+
+    @patch.object(BasecampClient, 'put')
+    def test_update_project(self, mock_put):
+        mock_put.return_value = make_response(200, {"id": 1, "name": "Renamed"})
+
+        result = self.client.update_project('1', 'Renamed', admissions='team')
+
+        self.assertEqual(result, {"id": 1, "name": "Renamed"})
+        mock_put.assert_called_once_with('projects/1.json', {'name': 'Renamed', 'admissions': 'team'})
+
+    @patch.object(BasecampClient, 'put')
+    def test_update_project_schedule_dates_grouped_together(self, mock_put):
+        mock_put.return_value = make_response(200, {"id": 1})
+
+        self.client.update_project('1', 'Name', start_date='2026-01-01', end_date='2026-02-01')
+
+        _, data = mock_put.call_args[0]
+        self.assertEqual(data['schedule_attributes'], {'start_date': '2026-01-01', 'end_date': '2026-02-01'})
+
+    @patch.object(BasecampClient, 'put')
+    def test_archive_project(self, mock_put):
+        mock_put.return_value = make_response(204)
+
+        result = self.client.archive_project('1')
+
+        self.assertTrue(result)
+        mock_put.assert_called_once_with('projects/1/status/archived.json')
+
+    @patch.object(BasecampClient, 'put')
+    def test_unarchive_project(self, mock_put):
+        mock_put.return_value = make_response(204)
+
+        result = self.client.unarchive_project('1')
+
+        self.assertTrue(result)
+        mock_put.assert_called_once_with('projects/1/status/active.json')
+
+    @patch.object(BasecampClient, 'delete')
+    def test_trash_project(self, mock_delete):
+        mock_delete.return_value = make_response(204)
+
+        result = self.client.trash_project('1')
+
+        self.assertTrue(result)
+        mock_delete.assert_called_once_with('projects/1.json')
+
+
 if __name__ == '__main__':
     unittest.main()

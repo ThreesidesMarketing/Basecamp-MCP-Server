@@ -3063,6 +3063,135 @@ async def update_my_preferences(
         return {"error": "Execution error", "message": str(e)}
 
 
+# Project Management Tools
+@mcp.tool()
+async def create_project(name: str, description: str = "") -> Dict[str, Any]:
+    """Create a new project.
+
+    Args:
+        name: Project name
+        description: Optional project description
+    """
+    client = await _get_basecamp_client()
+    if not client:
+        return _get_auth_error_response()
+
+    try:
+        project = await _run_sync(
+            lambda: client.create_project(name, description if description else None)
+        )
+        return {"status": "success", "project": project}
+    except Exception as e:
+        logger.error(f"Error creating project: {e}")
+        if "401" in str(e) and "expired" in str(e).lower():
+            return {"error": "OAuth token expired", "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."}
+        return {"error": "Execution error", "message": str(e)}
+
+
+@mcp.tool()
+async def update_project(
+    project_id: str,
+    name: str,
+    description: str = "",
+    start_date: str = "",
+    end_date: str = "",
+    admissions: str = "",
+) -> Dict[str, Any]:
+    """Update a project's name, description, schedule, or access policy.
+
+    Args:
+        project_id: The project ID
+        name: Project name (required by the API even when unchanged)
+        description: Optional project description
+        start_date: Project start date (ISO 8601). Requires end_date to also be set.
+        end_date: Project end date (ISO 8601). Requires start_date to also be set.
+        admissions: Access policy - one of 'invite', 'employee', 'team'
+    """
+    client = await _get_basecamp_client()
+    if not client:
+        return _get_auth_error_response()
+
+    try:
+        project = await _run_sync(
+            lambda: client.update_project(
+                project_id, name,
+                description=description if description else None,
+                start_date=start_date if start_date else None,
+                end_date=end_date if end_date else None,
+                admissions=admissions if admissions else None,
+            )
+        )
+        return {"status": "success", "project": project}
+    except Exception as e:
+        logger.error(f"Error updating project {project_id}: {e}")
+        if "401" in str(e) and "expired" in str(e).lower():
+            return {"error": "OAuth token expired", "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."}
+        return {"error": "Execution error", "message": str(e)}
+
+
+@mcp.tool()
+async def archive_project(project_id: str) -> Dict[str, Any]:
+    """Archive a project.
+
+    Args:
+        project_id: The project ID
+    """
+    client = await _get_basecamp_client()
+    if not client:
+        return _get_auth_error_response()
+
+    try:
+        await _run_sync(client.archive_project, project_id)
+        return {"status": "success", "message": f"Project {project_id} archived"}
+    except Exception as e:
+        logger.error(f"Error archiving project {project_id}: {e}")
+        if "401" in str(e) and "expired" in str(e).lower():
+            return {"error": "OAuth token expired", "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."}
+        return {"error": "Execution error", "message": str(e)}
+
+
+@mcp.tool()
+async def unarchive_project(project_id: str) -> Dict[str, Any]:
+    """Restore a project from the archive or trash to active.
+
+    Args:
+        project_id: The project ID
+    """
+    client = await _get_basecamp_client()
+    if not client:
+        return _get_auth_error_response()
+
+    try:
+        await _run_sync(client.unarchive_project, project_id)
+        return {"status": "success", "message": f"Project {project_id} restored to active"}
+    except Exception as e:
+        logger.error(f"Error unarchiving project {project_id}: {e}")
+        if "401" in str(e) and "expired" in str(e).lower():
+            return {"error": "OAuth token expired", "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."}
+        return {"error": "Execution error", "message": str(e)}
+
+
+@mcp.tool()
+async def trash_project(project_id: str) -> Dict[str, Any]:
+    """Move a project to the trash. Trashed projects are deleted after 30 days.
+
+    Args:
+        project_id: The project ID
+    """
+    client = await _get_basecamp_client()
+    if not client:
+        return _get_auth_error_response()
+
+    try:
+        await _run_sync(client.trash_project, project_id)
+        return {"status": "success", "message": f"Project {project_id} moved to trash"}
+    except Exception as e:
+        logger.error(f"Error trashing project {project_id}: {e}")
+        if "401" in str(e) and "expired" in str(e).lower():
+            return {"error": "OAuth token expired", "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."}
+        return {"error": "Execution error", "message": str(e)}
+
+
 # 🎉 COMPLETE FastMCP server with ALL tools migrated!
 
 if __name__ == "__main__":

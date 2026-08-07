@@ -357,5 +357,95 @@ class TestProjects(unittest.TestCase):
         mock_delete.assert_called_once_with('projects/1.json')
 
 
+class TestTodos(unittest.TestCase):
+    def setUp(self):
+        self.client = make_client()
+
+    @patch.object(BasecampClient, 'get')
+    def test_get_todos_uses_flat_route(self, mock_get):
+        mock_get.return_value = make_response(200, [{"id": 1}])
+
+        result = self.client.get_todos('999', '3')
+
+        self.assertEqual(result, [{"id": 1}])
+        endpoint = mock_get.call_args[0][0]
+        self.assertEqual(endpoint, 'todolists/3/todos.json')
+
+    @patch.object(BasecampClient, 'get')
+    def test_get_todo_uses_flat_route(self, mock_get):
+        mock_get.return_value = make_response(200, {"id": 2})
+
+        result = self.client.get_todo('999', '2')
+
+        self.assertEqual(result, {"id": 2})
+        mock_get.assert_called_once_with('todos/2.json')
+
+    @patch.object(BasecampClient, 'post')
+    def test_create_todo_uses_flat_route(self, mock_post):
+        mock_post.return_value = make_response(201, {"id": 3})
+
+        result = self.client.create_todo('999', '3', 'New todo')
+
+        self.assertEqual(result, {"id": 3})
+        endpoint = mock_post.call_args[0][0]
+        self.assertEqual(endpoint, 'todolists/3/todos.json')
+
+    @patch.object(BasecampClient, 'put')
+    def test_update_todo_uses_flat_route(self, mock_put):
+        mock_put.return_value = make_response(200, {"id": 2})
+
+        result = self.client.update_todo('999', '2', content='Updated')
+
+        self.assertEqual(result, {"id": 2})
+        endpoint = mock_put.call_args[0][0]
+        self.assertEqual(endpoint, 'todos/2.json')
+
+    @patch.object(BasecampClient, 'put')
+    def test_delete_todo_uses_flat_recordings_route(self, mock_put):
+        mock_put.return_value = make_response(204)
+
+        result = self.client.delete_todo('999', '2')
+
+        self.assertTrue(result)
+        mock_put.assert_called_once_with('recordings/2/status/trashed.json')
+
+    @patch.object(BasecampClient, 'put')
+    def test_archive_todo_uses_flat_recordings_route(self, mock_put):
+        mock_put.return_value = make_response(204)
+
+        result = self.client.archive_todo('999', '2')
+
+        self.assertTrue(result)
+        mock_put.assert_called_once_with('recordings/2/status/archived.json')
+
+    @patch.object(BasecampClient, 'put')
+    def test_reposition_todo_uses_flat_route(self, mock_put):
+        mock_put.return_value = make_response(204)
+
+        result = self.client.reposition_todo('999', '2', 3)
+
+        self.assertTrue(result)
+        endpoint = mock_put.call_args[0][0]
+        self.assertEqual(endpoint, 'todos/2/position.json')
+
+    @patch.object(BasecampClient, 'post')
+    def test_complete_todo_uses_flat_route(self, mock_post):
+        mock_post.return_value = make_response(201, {"id": 2, "status": "completed"})
+
+        result = self.client.complete_todo('999', '2')
+
+        self.assertEqual(result, {"id": 2, "status": "completed"})
+        mock_post.assert_called_once_with('todos/2/completion.json')
+
+    @patch.object(BasecampClient, 'delete')
+    def test_uncomplete_todo_uses_flat_route(self, mock_delete):
+        mock_delete.return_value = make_response(204)
+
+        result = self.client.uncomplete_todo('999', '2')
+
+        self.assertTrue(result)
+        mock_delete.assert_called_once_with('todos/2/completion.json')
+
+
 if __name__ == '__main__':
     unittest.main()

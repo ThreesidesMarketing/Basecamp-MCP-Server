@@ -408,7 +408,7 @@ class BasecampClient:
         the HTTP `Link` header if present, aggregating all pages before
         returning the combined list.
         """
-        endpoint = f'buckets/{project_id}/todolists/{todolist_id}/todos.json'
+        endpoint = f'todolists/{todolist_id}/todos.json'
 
         all_todos = []
         page = 1
@@ -442,7 +442,7 @@ class BasecampClient:
         Returns:
             dict: The todo object
         """
-        endpoint = f'buckets/{project_id}/todos/{todo_id}.json'
+        endpoint = f'todos/{todo_id}.json'
         response = self.get(endpoint)
         if response.status_code == 200:
             return response.json()
@@ -468,7 +468,7 @@ class BasecampClient:
         Returns:
             dict: The created todo
         """
-        endpoint = f'buckets/{project_id}/todolists/{todolist_id}/todos.json'
+        endpoint = f'todolists/{todolist_id}/todos.json'
         data = {'content': content}
         
         if description is not None:
@@ -509,7 +509,7 @@ class BasecampClient:
         Returns:
             dict: The updated todo
         """
-        endpoint = f'buckets/{project_id}/todos/{todo_id}.json'
+        endpoint = f'todos/{todo_id}.json'
         data = {}
         
         if content is not None:
@@ -547,7 +547,7 @@ class BasecampClient:
         Returns:
             bool: True if successful
         """
-        endpoint = f'buckets/{project_id}/recordings/{todo_id}/status/trashed.json'
+        endpoint = f'recordings/{todo_id}/status/trashed.json'
         response = self.put(endpoint)
         if response.status_code == 204:
             return True
@@ -565,7 +565,7 @@ class BasecampClient:
         Returns:
             bool: True if successful
         """
-        endpoint = f'buckets/{project_id}/recordings/{todo_id}/status/archived.json'
+        endpoint = f'recordings/{todo_id}/status/archived.json'
         response = self.put(endpoint)
         if response.status_code == 204:
             return True
@@ -586,7 +586,7 @@ class BasecampClient:
         Returns:
             bool: True if successful
         """
-        endpoint = f'buckets/{project_id}/todos/{todo_id}/position.json'
+        endpoint = f'todos/{todo_id}/position.json'
         data = {'position': position}
         if parent_id is not None:
             data['parent_id'] = parent_id
@@ -607,7 +607,7 @@ class BasecampClient:
         Returns:
             dict: Completion details
         """
-        endpoint = f'buckets/{project_id}/todos/{todo_id}/completion.json'
+        endpoint = f'todos/{todo_id}/completion.json'
         response = self.post(endpoint)
         if response.status_code == 201:
             return response.json()
@@ -625,7 +625,7 @@ class BasecampClient:
         Returns:
             bool: True if successful
         """
-        endpoint = f'buckets/{project_id}/todos/{todo_id}/completion.json'
+        endpoint = f'todos/{todo_id}/completion.json'
         response = self.delete(endpoint)
         if response.status_code == 204:
             return True

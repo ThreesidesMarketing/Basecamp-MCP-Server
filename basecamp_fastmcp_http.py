@@ -872,7 +872,10 @@ async def get_message_categories(project_id: str) -> Dict[str, Any]:
 @mcp.tool()
 async def create_message(project_id: str, subject: str, content: str,
                          message_board_id: str = "",
-                         category_id: str = "") -> Dict[str, Any]:
+                         category_id: str = "",
+                         status: str = "",
+                         subscriptions=None,
+                         visible_to_clients: bool = False) -> Dict[str, Any]:
     """Create a new message on a project's message board.
 
     Args:
@@ -881,6 +884,9 @@ async def create_message(project_id: str, subject: str, content: str,
         content: Message body in HTML format
         message_board_id: Optional message board ID. If not provided, will be auto-discovered from the project.
         category_id: Optional message type/category ID
+        status: Optional status - "active" to publish immediately (default) or "drafted" to save as a draft
+        subscriptions: Optional list of person IDs to notify and subscribe. If omitted, everyone on the project is notified.
+        visible_to_clients: Whether the message is visible to clients when the project has clients enabled
     """
     client = await _get_basecamp_client()
     if not client:
@@ -891,7 +897,10 @@ async def create_message(project_id: str, subject: str, content: str,
             lambda: client.create_message(
                 project_id, subject, content,
                 message_board_id=message_board_id if message_board_id else None,
-                category_id=category_id if category_id else None
+                category_id=category_id if category_id else None,
+                status=status if status else None,
+                subscriptions=subscriptions,
+                visible_to_clients=visible_to_clients if visible_to_clients else None
             )
         )
         return {
@@ -910,6 +919,107 @@ async def create_message(project_id: str, subject: str, content: str,
             "error": "Execution error",
             "message": str(e)
         }
+
+
+@mcp.tool()
+async def update_message(message_id: str, subject: str = "", content: str = "",
+                         category_id: str = "", subscriptions=None,
+                         notify: bool = False) -> Dict[str, Any]:
+    """Update an existing message's subject, content, or category.
+
+    Args:
+        message_id: The message ID
+        subject: New title. Leave blank to keep the current subject.
+        content: New HTML body. Leave blank to keep the current content.
+        category_id: New message type/category ID
+        subscriptions: Optional list of person IDs to recompute subscribers.
+            Omit both subscriptions and notify to keep the message's current subscribers.
+        notify: Whether to notify newly added subscribers
+    """
+    client = await _get_basecamp_client()
+    if not client:
+        return _get_auth_error_response()
+
+    try:
+        message = await _run_sync(
+            lambda: client.update_message(
+                message_id,
+                subject=subject if subject else None,
+                content=content if content else None,
+                category_id=category_id if category_id else None,
+                subscriptions=subscriptions,
+                notify=notify if notify else None
+            )
+        )
+        return {"status": "success", "message": message}
+    except Exception as e:
+        logger.error(f"Error updating message {message_id}: {e}")
+        if "401" in str(e) and "expired" in str(e).lower():
+            return {"error": "OAuth token expired", "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."}
+        return {"error": "Execution error", "message": str(e)}
+
+
+@mcp.tool()
+async def pin_message(message_id: str) -> Dict[str, Any]:
+    """Pin a message to the top of its message board.
+
+    Args:
+        message_id: The message ID
+    """
+    client = await _get_basecamp_client()
+    if not client:
+        return _get_auth_error_response()
+
+    try:
+        await _run_sync(client.pin_message, message_id)
+        return {"status": "success", "message": f"Message {message_id} pinned"}
+    except Exception as e:
+        logger.error(f"Error pinning message {message_id}: {e}")
+        if "401" in str(e) and "expired" in str(e).lower():
+            return {"error": "OAuth token expired", "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."}
+        return {"error": "Execution error", "message": str(e)}
+
+
+@mcp.tool()
+async def unpin_message(message_id: str) -> Dict[str, Any]:
+    """Unpin a message.
+
+    Args:
+        message_id: The message ID
+    """
+    client = await _get_basecamp_client()
+    if not client:
+        return _get_auth_error_response()
+
+    try:
+        await _run_sync(client.unpin_message, message_id)
+        return {"status": "success", "message": f"Message {message_id} unpinned"}
+    except Exception as e:
+        logger.error(f"Error unpinning message {message_id}: {e}")
+        if "401" in str(e) and "expired" in str(e).lower():
+            return {"error": "OAuth token expired", "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."}
+        return {"error": "Execution error", "message": str(e)}
+
+
+@mcp.tool()
+async def trash_message(message_id: str) -> Dict[str, Any]:
+    """Move a message to the trash.
+
+    Args:
+        message_id: The message ID
+    """
+    client = await _get_basecamp_client()
+    if not client:
+        return _get_auth_error_response()
+
+    try:
+        await _run_sync(client.trash_message, message_id)
+        return {"status": "success", "message": f"Message {message_id} moved to trash"}
+    except Exception as e:
+        logger.error(f"Error trashing message {message_id}: {e}")
+        if "401" in str(e) and "expired" in str(e).lower():
+            return {"error": "OAuth token expired", "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."}
+        return {"error": "Execution error", "message": str(e)}
 
 
 # Inbox Tools (Email Forwards)

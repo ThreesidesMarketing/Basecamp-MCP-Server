@@ -649,7 +649,7 @@ class BasecampClient:
         try:
             dock_item = next(_ for _ in project["dock"] if _["name"] == "message_board")
             board_id = dock_item['id']
-            response = self.get(f'buckets/{project_id}/message_boards/{board_id}.json')
+            response = self.get(f'message_boards/{board_id}.json')
             if response.status_code == 200:
                 return response.json()
             else:
@@ -677,7 +677,7 @@ class BasecampClient:
             message_board = self.get_message_board(project_id)
             message_board_id = message_board['id']
 
-        endpoint = f'buckets/{project_id}/message_boards/{message_board_id}/messages.json'
+        endpoint = f'message_boards/{message_board_id}/messages.json'
 
         all_messages = []
         page = 1
@@ -711,7 +711,7 @@ class BasecampClient:
         Returns:
             dict: Message details including title, content, creator, etc.
         """
-        endpoint = f'buckets/{project_id}/messages/{message_id}.json'
+        endpoint = f'messages/{message_id}.json'
         response = self.get(endpoint)
         if response.status_code == 200:
             return response.json()
@@ -734,7 +734,8 @@ class BasecampClient:
         else:
             raise Exception(f"Failed to get message categories: {response.status_code} - {response.text}")
 
-    def create_message(self, project_id, subject, content, message_board_id=None, category_id=None):
+    def create_message(self, project_id, subject, content, message_board_id=None, category_id=None,
+                        status=None, subscriptions=None, visible_to_clients=None):
         """Create a new message on a project's message board.
 
         Args:
@@ -743,6 +744,12 @@ class BasecampClient:
             content: Message body in HTML format
             message_board_id: Optional message board ID (auto-discovered if not provided)
             category_id: Optional message type/category ID
+            status: Optional status - 'active' to publish immediately (default) or
+                'drafted' to save as a draft that notifies no one until published
+            subscriptions: Optional list of person IDs to notify and subscribe.
+                If not provided, all people on the project will be notified.
+            visible_to_clients: Optional bool - whether the message is visible to
+                clients when the project has clients enabled
 
         Returns:
             dict: Created message details
@@ -751,16 +758,106 @@ class BasecampClient:
             message_board = self.get_message_board(project_id)
             message_board_id = message_board['id']
 
-        endpoint = f'buckets/{project_id}/message_boards/{message_board_id}/messages.json'
-        data = {'subject': subject, 'content': content, 'status': 'active'}
+        endpoint = f'message_boards/{message_board_id}/messages.json'
+        data = {'subject': subject, 'content': content, 'status': status or 'active'}
         if category_id is not None:
             data['category_id'] = category_id
+        if subscriptions is not None:
+            data['subscriptions'] = subscriptions
+        if visible_to_clients is not None:
+            data['visible_to_clients'] = visible_to_clients
 
         response = self.post(endpoint, data)
         if response.status_code == 201:
             return response.json()
         else:
             raise Exception(f"Failed to create message: {response.status_code} - {response.text}")
+
+    def update_message(self, message_id, subject=None, content=None, category_id=None,
+                        subscriptions=None, notify=None):
+        """Update an existing message.
+
+        Args:
+            message_id: Message ID
+            subject: Optional new title
+            content: Optional new HTML body
+            category_id: Optional new message type/category ID
+            subscriptions: Optional list of person IDs to recompute subscribers.
+                Omit both subscriptions and notify to keep current subscribers.
+            notify: Optional bool - whether to notify newly added subscribers
+
+        Returns:
+            dict: The updated message
+        """
+        endpoint = f'messages/{message_id}.json'
+        data = {}
+        if subject is not None:
+            data['subject'] = subject
+        if content is not None:
+            data['content'] = content
+        if category_id is not None:
+            data['category_id'] = category_id
+        if subscriptions is not None:
+            data['subscriptions'] = subscriptions
+        if notify is not None:
+            data['notify'] = notify
+
+        if not data:
+            raise ValueError("No fields provided to update")
+
+        response = self.put(endpoint, data)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise Exception(f"Failed to update message: {response.status_code} - {response.text}")
+
+    def pin_message(self, message_id):
+        """Pin a message to the top of its message board.
+
+        Args:
+            message_id: Message ID
+
+        Returns:
+            bool: True if successful
+        """
+        endpoint = f'recordings/{message_id}/pin.json'
+        response = self.post(endpoint)
+        if response.status_code == 204:
+            return True
+        else:
+            raise Exception(f"Failed to pin message: {response.status_code} - {response.text}")
+
+    def unpin_message(self, message_id):
+        """Unpin a message.
+
+        Args:
+            message_id: Message ID
+
+        Returns:
+            bool: True if successful
+        """
+        endpoint = f'recordings/{message_id}/pin.json'
+        response = self.delete(endpoint)
+        if response.status_code == 204:
+            return True
+        else:
+            raise Exception(f"Failed to unpin message: {response.status_code} - {response.text}")
+
+    def trash_message(self, message_id):
+        """Move a message to the trash.
+
+        Args:
+            message_id: Message ID
+
+        Returns:
+            bool: True if successful
+        """
+        endpoint = f'recordings/{message_id}/status/trashed.json'
+        response = self.put(endpoint)
+        if response.status_code == 204:
+            return True
+        else:
+            raise Exception(f"Failed to trash message: {response.status_code} - {response.text}")
 
     # Inbox methods (Email Forwards)
     def get_inbox(self, project_id):

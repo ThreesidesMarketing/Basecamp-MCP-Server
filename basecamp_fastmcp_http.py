@@ -3092,7 +3092,7 @@ async def create_project(name: str, description: str = "") -> Dict[str, Any]:
 async def update_project(
     project_id: str,
     name: str,
-    description: str = "",
+    description: str = "__NOT_SET__",
     start_date: str = "",
     end_date: str = "",
     admissions: str = "",
@@ -3102,7 +3102,7 @@ async def update_project(
     Args:
         project_id: The project ID
         name: Project name (required by the API even when unchanged)
-        description: Optional project description
+        description: Leave as __NOT_SET__ to keep unchanged; pass an empty string to clear it
         start_date: Project start date (ISO 8601). Requires end_date to also be set.
         end_date: Project end date (ISO 8601). Requires start_date to also be set.
         admissions: Access policy - one of 'invite', 'employee', 'team'
@@ -3112,10 +3112,11 @@ async def update_project(
         return _get_auth_error_response()
 
     try:
+        desc_val = None if description == "__NOT_SET__" else description
         project = await _run_sync(
             lambda: client.update_project(
                 project_id, name,
-                description=description if description else None,
+                description=desc_val,
                 start_date=start_date if start_date else None,
                 end_date=end_date if end_date else None,
                 admissions=admissions if admissions else None,

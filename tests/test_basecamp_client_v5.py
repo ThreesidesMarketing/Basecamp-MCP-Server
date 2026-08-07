@@ -146,5 +146,72 @@ class TestMessages(unittest.TestCase):
         mock_put.assert_called_once_with('recordings/2/status/trashed.json')
 
 
+class TestMyAssignments(unittest.TestCase):
+    def setUp(self):
+        self.client = make_client()
+
+    @patch.object(BasecampClient, 'get')
+    def test_get_my_assignments(self, mock_get):
+        mock_get.return_value = make_response(200, {"priorities": [], "non_priorities": []})
+
+        result = self.client.get_my_assignments()
+
+        self.assertEqual(result, {"priorities": [], "non_priorities": []})
+        mock_get.assert_called_once_with('my/assignments.json')
+
+    @patch.object(BasecampClient, 'get')
+    def test_get_my_completed_assignments(self, mock_get):
+        mock_get.return_value = make_response(200, [{"id": 1}])
+
+        result = self.client.get_my_completed_assignments()
+
+        self.assertEqual(result, [{"id": 1}])
+        mock_get.assert_called_once_with('my/assignments/completed.json')
+
+    @patch.object(BasecampClient, 'get')
+    def test_get_my_due_assignments_with_scope(self, mock_get):
+        mock_get.return_value = make_response(200, [{"id": 1}])
+
+        result = self.client.get_my_due_assignments(scope='due_today')
+
+        self.assertEqual(result, [{"id": 1}])
+        mock_get.assert_called_once_with('my/assignments/due.json', params={'scope': 'due_today'})
+
+    @patch.object(BasecampClient, 'get')
+    def test_get_my_due_assignments_no_scope(self, mock_get):
+        mock_get.return_value = make_response(200, [])
+
+        self.client.get_my_due_assignments()
+
+        mock_get.assert_called_once_with('my/assignments/due.json', params=None)
+
+    @patch.object(BasecampClient, 'post')
+    def test_prioritize_assignment(self, mock_post):
+        mock_post.return_value = make_response(204)
+
+        result = self.client.prioritize_assignment('123')
+
+        self.assertTrue(result)
+        mock_post.assert_called_once_with('my/priorities.json', {'id': '123'})
+
+    @patch.object(BasecampClient, 'delete')
+    def test_deprioritize_assignment(self, mock_delete):
+        mock_delete.return_value = make_response(204)
+
+        result = self.client.deprioritize_assignment('123')
+
+        self.assertTrue(result)
+        mock_delete.assert_called_once_with('my/priorities/123.json')
+
+    @patch.object(BasecampClient, 'post')
+    def test_reorder_up_next(self, mock_post):
+        mock_post.return_value = make_response(204)
+
+        result = self.client.reorder_up_next('123', 2)
+
+        self.assertTrue(result)
+        mock_post.assert_called_once_with('my/priority_moves.json', {'source_id': '123', 'position': 2})
+
+
 if __name__ == '__main__':
     unittest.main()

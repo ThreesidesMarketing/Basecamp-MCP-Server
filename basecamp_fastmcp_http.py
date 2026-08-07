@@ -2709,6 +2709,140 @@ async def search_projects(query: str) -> Dict[str, Any]:
         }
 
 
+# My Assignments Tools
+@mcp.tool()
+async def get_my_assignments() -> Dict[str, Any]:
+    """Get the current user's active assignments, grouped into priorities and non-priorities.
+
+    Card table steps are normalized under their parent card as a "children" entry.
+    """
+    client = await _get_basecamp_client()
+    if not client:
+        return _get_auth_error_response()
+
+    try:
+        assignments = await _run_sync(client.get_my_assignments)
+        return {"status": "success", "assignments": assignments}
+    except Exception as e:
+        logger.error(f"Error getting my assignments: {e}")
+        if "401" in str(e) and "expired" in str(e).lower():
+            return {"error": "OAuth token expired", "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."}
+        return {"error": "Execution error", "message": str(e)}
+
+
+@mcp.tool()
+async def get_my_completed_assignments() -> Dict[str, Any]:
+    """Get the current user's completed assignments (archived/trashed items excluded)."""
+    client = await _get_basecamp_client()
+    if not client:
+        return _get_auth_error_response()
+
+    try:
+        assignments = await _run_sync(client.get_my_completed_assignments)
+        return {"status": "success", "assignments": assignments, "count": len(assignments)}
+    except Exception as e:
+        logger.error(f"Error getting completed assignments: {e}")
+        if "401" in str(e) and "expired" in str(e).lower():
+            return {"error": "OAuth token expired", "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."}
+        return {"error": "Execution error", "message": str(e)}
+
+
+@mcp.tool()
+async def get_my_due_assignments(scope: str = "") -> Dict[str, Any]:
+    """Get the current user's assignments filtered by due date scope.
+
+    Args:
+        scope: One of 'overdue', 'due_today', 'due_tomorrow', 'due_later_this_week',
+            'due_next_week', 'due_later'. Defaults to 'overdue' when omitted.
+    """
+    client = await _get_basecamp_client()
+    if not client:
+        return _get_auth_error_response()
+
+    try:
+        assignments = await _run_sync(
+            lambda: client.get_my_due_assignments(scope if scope else None)
+        )
+        return {"status": "success", "assignments": assignments, "count": len(assignments)}
+    except Exception as e:
+        logger.error(f"Error getting due assignments: {e}")
+        if "401" in str(e) and "expired" in str(e).lower():
+            return {"error": "OAuth token expired", "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."}
+        return {"error": "Execution error", "message": str(e)}
+
+
+@mcp.tool()
+async def prioritize_assignment(recording_id: str) -> Dict[str, Any]:
+    """Add a to-do, card, or card table step to "Up Next".
+
+    Args:
+        recording_id: The recording ID to prioritize. Use the item's top-level id
+            for a to-do or card; for an unprioritized card table step use the
+            step's own id from its parent card's "children".
+    """
+    client = await _get_basecamp_client()
+    if not client:
+        return _get_auth_error_response()
+
+    try:
+        await _run_sync(client.prioritize_assignment, recording_id)
+        return {"status": "success", "message": f"Recording {recording_id} added to Up Next"}
+    except Exception as e:
+        logger.error(f"Error prioritizing assignment {recording_id}: {e}")
+        if "401" in str(e) and "expired" in str(e).lower():
+            return {"error": "OAuth token expired", "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."}
+        return {"error": "Execution error", "message": str(e)}
+
+
+@mcp.tool()
+async def deprioritize_assignment(recording_id: str) -> Dict[str, Any]:
+    """Remove a recording from "Up Next". Safe to call even if it isn't prioritized.
+
+    Args:
+        recording_id: The recording ID to deprioritize. For a prioritized card table
+            step, use the step's own id (its parent card's priority_recording_id).
+    """
+    client = await _get_basecamp_client()
+    if not client:
+        return _get_auth_error_response()
+
+    try:
+        await _run_sync(client.deprioritize_assignment, recording_id)
+        return {"status": "success", "message": f"Recording {recording_id} removed from Up Next"}
+    except Exception as e:
+        logger.error(f"Error deprioritizing assignment {recording_id}: {e}")
+        if "401" in str(e) and "expired" in str(e).lower():
+            return {"error": "OAuth token expired", "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."}
+        return {"error": "Execution error", "message": str(e)}
+
+
+@mcp.tool()
+async def reorder_up_next(source_id: str, position: int) -> Dict[str, Any]:
+    """Move an already-prioritized recording to a new position in "Up Next".
+
+    Args:
+        source_id: The recording ID to move
+        position: New 1-based position within Up Next
+    """
+    client = await _get_basecamp_client()
+    if not client:
+        return _get_auth_error_response()
+
+    if position < 1:
+        return {"error": "Invalid input", "message": "position must be >= 1"}
+
+    try:
+        await _run_sync(
+            lambda: client.reorder_up_next(source_id, position)
+        )
+        return {"status": "success", "message": f"Recording {source_id} moved to position {position} in Up Next"}
+    except Exception as e:
+        logger.error(f"Error reordering Up Next for {source_id}: {e}")
+        if "401" in str(e) and "expired" in str(e).lower():
+            return {"error": "OAuth token expired", "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."}
+        return {"error": "Execution error", "message": str(e)}
+
+
 # 🎉 COMPLETE FastMCP server with ALL tools migrated!
 
 if __name__ == "__main__":

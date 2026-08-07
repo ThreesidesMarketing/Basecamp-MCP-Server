@@ -606,6 +606,101 @@ class BasecampClient:
         else:
             raise Exception(f"Failed to reposition todolist group: {response.status_code} - {response.text}")
 
+    # My Assignments methods
+    def get_my_assignments(self):
+        """Get the current user's active assignments, grouped by priority.
+
+        Returns:
+            dict: Object with 'priorities' and 'non_priorities' assignment lists
+        """
+        response = self.get('my/assignments.json')
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise Exception(f"Failed to get assignments: {response.status_code} - {response.text}")
+
+    def get_my_completed_assignments(self):
+        """Get the current user's completed assignments.
+
+        Archived and trashed recordings are excluded.
+
+        Returns:
+            list: Completed assignments
+        """
+        response = self.get('my/assignments/completed.json')
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise Exception(f"Failed to get completed assignments: {response.status_code} - {response.text}")
+
+    def get_my_due_assignments(self, scope=None):
+        """Get the current user's assignments filtered by due date scope.
+
+        Args:
+            scope (str, optional): One of 'overdue', 'due_today', 'due_tomorrow',
+                'due_later_this_week', 'due_next_week', 'due_later'. Defaults to
+                'overdue' server-side when omitted.
+
+        Returns:
+            list: Assignments due within the given scope
+        """
+        params = {'scope': scope} if scope else None
+        response = self.get('my/assignments/due.json', params=params)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise Exception(f"Failed to get due assignments: {response.status_code} - {response.text}")
+
+    def prioritize_assignment(self, recording_id):
+        """Add a recording to "Up Next", the current user's prioritized assignment list.
+
+        Args:
+            recording_id: The recording ID to prioritize (a to-do's or card's top-level
+                id, or a not-yet-prioritized card table step's own id)
+
+        Returns:
+            bool: True if successful
+        """
+        response = self.post('my/priorities.json', {'id': recording_id})
+        if response.status_code == 204:
+            return True
+        else:
+            raise Exception(f"Failed to prioritize assignment: {response.status_code} - {response.text}")
+
+    def deprioritize_assignment(self, recording_id):
+        """Remove a recording from "Up Next".
+
+        This is a no-op (still returns True) if the recording carries no priority,
+        so a repeated call is always safe.
+
+        Args:
+            recording_id: The recording ID to deprioritize
+
+        Returns:
+            bool: True if successful
+        """
+        response = self.delete(f'my/priorities/{recording_id}.json')
+        if response.status_code == 204:
+            return True
+        else:
+            raise Exception(f"Failed to deprioritize assignment: {response.status_code} - {response.text}")
+
+    def reorder_up_next(self, source_id, position):
+        """Move an already-prioritized recording to a new position in "Up Next".
+
+        Args:
+            source_id: The recording ID to move
+            position: The 1-based position to move it to
+
+        Returns:
+            bool: True if successful
+        """
+        response = self.post('my/priority_moves.json', {'source_id': source_id, 'position': position})
+        if response.status_code == 204:
+            return True
+        else:
+            raise Exception(f"Failed to reorder Up Next: {response.status_code} - {response.text}")
+
     # People methods
     def get_people(self):
         """Get all people in the account."""

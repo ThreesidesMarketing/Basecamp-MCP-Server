@@ -1939,3 +1939,61 @@ class BasecampClient:
             return response.json()
         else:
             raise Exception(f"Failed to get upload: {response.status_code} - {response.text}")
+
+    # Search methods
+    def get_search_metadata(self):
+        """Get valid filter options for search (type_names[] and file_type values).
+
+        Returns:
+            dict: Available recording_search_types and file_search_types
+        """
+        response = self.get('searches/metadata.json')
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise Exception(f"Failed to get search metadata: {response.status_code} - {response.text}")
+
+    def search(self, query, type_names=None, bucket_ids=None, creator_ids=None,
+               file_type=None, exclude_chat=None, since=None, sort=None,
+               page=1, per_page=50):
+        """Search recordings across the account using Basecamp's native search.
+
+        Args:
+            query: The search query string (required)
+            type_names (list, optional): Recording types to include -- key values
+                from get_search_metadata()'s recording_search_types
+            bucket_ids (list, optional): Project IDs to filter by
+            creator_ids (list, optional): Creator person IDs to filter by
+            file_type (str, optional): Attachment file type -- a key value from
+                get_search_metadata()'s file_search_types
+            exclude_chat (bool, optional): Set True to exclude chat results
+            since (str, optional): One of 'last_7_days', 'last_30_days',
+                'last_90_days', 'last_12_months', 'forever' (default)
+            sort (str, optional): 'best_match' (default) or 'recency'
+            page (int, optional): Page number, default 1
+            per_page (int, optional): Results per page, default 50
+
+        Returns:
+            list: Matching recordings for the requested page
+        """
+        params = {'q': query, 'page': page, 'per_page': per_page}
+        if type_names is not None:
+            params['type_names[]'] = type_names
+        if bucket_ids is not None:
+            params['bucket_ids[]'] = bucket_ids
+        if creator_ids is not None:
+            params['creator_ids[]'] = creator_ids
+        if file_type is not None:
+            params['file_type'] = file_type
+        if exclude_chat is not None:
+            params['exclude_chat'] = 1 if exclude_chat else 0
+        if since is not None:
+            params['since'] = since
+        if sort is not None:
+            params['sort'] = sort
+
+        response = self.get('search.json', params=params)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise Exception(f"Failed to search: {response.status_code} - {response.text}")

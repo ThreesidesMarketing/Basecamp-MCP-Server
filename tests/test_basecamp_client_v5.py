@@ -543,5 +543,52 @@ class TestTodosets(unittest.TestCase):
         mock_get.assert_called_once_with('todosets/3.json')
 
 
+class TestSearch(unittest.TestCase):
+    def setUp(self):
+        self.client = make_client()
+
+    @patch.object(BasecampClient, 'get')
+    def test_get_search_metadata(self, mock_get):
+        mock_get.return_value = make_response(200, {"recording_search_types": [], "file_search_types": []})
+
+        result = self.client.get_search_metadata()
+
+        self.assertEqual(result, {"recording_search_types": [], "file_search_types": []})
+        mock_get.assert_called_once_with('searches/metadata.json')
+
+    @patch.object(BasecampClient, 'get')
+    def test_search_basic_query(self, mock_get):
+        mock_get.return_value = make_response(200, [{"id": 1}])
+
+        result = self.client.search('deploy')
+
+        self.assertEqual(result, [{"id": 1}])
+        endpoint = mock_get.call_args[0][0]
+        params = mock_get.call_args[1]['params']
+        self.assertEqual(endpoint, 'search.json')
+        self.assertEqual(params, {'q': 'deploy', 'page': 1, 'per_page': 50})
+
+    @patch.object(BasecampClient, 'get')
+    def test_search_with_filters(self, mock_get):
+        mock_get.return_value = make_response(200, [])
+
+        self.client.search(
+            'deploy', type_names=['Todo', 'Message'], bucket_ids=[1, 2],
+            creator_ids=[9], file_type='pdf', exclude_chat=True,
+            since='last_30_days', sort='recency', page=2, per_page=25,
+        )
+
+        params = mock_get.call_args[1]['params']
+        self.assertEqual(params['type_names[]'], ['Todo', 'Message'])
+        self.assertEqual(params['bucket_ids[]'], [1, 2])
+        self.assertEqual(params['creator_ids[]'], [9])
+        self.assertEqual(params['file_type'], 'pdf')
+        self.assertEqual(params['exclude_chat'], 1)
+        self.assertEqual(params['since'], 'last_30_days')
+        self.assertEqual(params['sort'], 'recency')
+        self.assertEqual(params['page'], 2)
+        self.assertEqual(params['per_page'], 25)
+
+
 if __name__ == '__main__':
     unittest.main()

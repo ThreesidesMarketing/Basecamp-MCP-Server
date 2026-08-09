@@ -156,35 +156,79 @@ async def get_project(project_id: str) -> Dict[str, Any]:
         }
 
 @mcp.tool()
-async def search_basecamp(query: str, project_id: str = "") -> Dict[str, Any]:
-    """Search across Basecamp projects, todos, and messages.
-    
-    Args:
-        query: Search query
-        project_id: Optional project ID to limit search scope
+async def get_search_metadata() -> Dict[str, Any]:
+    """Get valid filter values for search_basecamp's type_names and file_type parameters.
+
+    Always call this before relying on a specific type_names or file_type value, since
+    the available options can vary by account.
     """
     client = await _get_basecamp_client()
     if not client:
         return _get_auth_error_response()
-    
+
     try:
-        search = BasecampSearch(client=client)
-        results = {}
+        metadata = await _run_sync(client.get_search_metadata)
+        return {"status": "success", "metadata": metadata}
+    except Exception as e:
+        logger.error(f"Error getting search metadata: {e}")
+        if "401" in str(e) and "expired" in str(e).lower():
+            return {"error": "OAuth token expired", "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."}
+        return {"error": "Execution error", "message": str(e)}
 
-        if project_id:
-            # Search within specific project
-            results["todolists"] = await _run_sync(search.search_todolists, query, project_id)
-            results["todos"] = await _run_sync(search.search_todos, query, project_id)
-        else:
-            # Search across all projects
-            results["projects"] = await _run_sync(search.search_projects, query)
-            results["todos"] = await _run_sync(search.search_todos, query)
-            results["messages"] = await _run_sync(search.search_messages, query)
 
+@mcp.tool()
+async def search_basecamp(
+    query: str,
+    type_names: str = "",
+    bucket_ids: str = "",
+    creator_ids: str = "",
+    file_type: str = "",
+    exclude_chat: bool = False,
+    since: str = "",
+    sort: str = "",
+    page: int = 1,
+    per_page: int = 50,
+) -> Dict[str, Any]:
+    """Search recordings across the account using Basecamp's native search.
+
+    Call get_search_metadata first to discover valid type_names/file_type values.
+
+    Args:
+        query: The search query string
+        type_names: Comma-separated recording types to include (e.g. "Todo,Message")
+        bucket_ids: Comma-separated project IDs to filter by
+        creator_ids: Comma-separated creator person IDs to filter by
+        file_type: Attachment file type to filter by
+        exclude_chat: Set True to exclude chat results
+        since: One of 'last_7_days', 'last_30_days', 'last_90_days', 'last_12_months', 'forever'
+        sort: 'best_match' (default) or 'recency'
+        page: Page number, default 1
+        per_page: Results per page, default 50
+    """
+    client = await _get_basecamp_client()
+    if not client:
+        return _get_auth_error_response()
+
+    try:
+        results = await _run_sync(
+            lambda: client.search(
+                query,
+                type_names=[t.strip() for t in type_names.split(',') if t.strip()] if type_names else None,
+                bucket_ids=[b.strip() for b in bucket_ids.split(',') if b.strip()] if bucket_ids else None,
+                creator_ids=[c.strip() for c in creator_ids.split(',') if c.strip()] if creator_ids else None,
+                file_type=file_type if file_type else None,
+                exclude_chat=exclude_chat if exclude_chat else None,
+                since=since if since else None,
+                sort=sort if sort else None,
+                page=page,
+                per_page=per_page,
+            )
+        )
         return {
             "status": "success",
             "query": query,
-            "results": results
+            "results": results,
+            "count": len(results),
         }
     except Exception as e:
         logger.error(f"Error searching Basecamp: {e}")

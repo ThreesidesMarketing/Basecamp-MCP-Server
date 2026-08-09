@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-This is a **Basecamp 3 MCP (Model Context Protocol) Server** that allows AI assistants (Cursor, Claude Desktop) to interact with Basecamp directly. It uses OAuth 2.0 for authentication and provides 79 tools for Basecamp operations.
+This is a **Basecamp 5 MCP (Model Context Protocol) Server** that allows AI assistants (Cursor, Claude Desktop) to interact with Basecamp directly. It uses OAuth 2.0 for authentication and provides 100+ tools for Basecamp operations. The actively deployed server is `basecamp_fastmcp_http.py` (HTTP transport); `basecamp_fastmcp.py` (stdio) and `mcp_server_cli.py` (legacy JSON-RPC) exist as alternate transports but are not actively maintained.
 
 ## Development Commands
 
@@ -20,8 +20,9 @@ python setup.py                      # Creates venv, installs deps, tests server
 python oauth_app.py                  # Start OAuth server at http://localhost:8000
 
 # Run the MCP server (for testing)
-./venv/bin/python basecamp_fastmcp.py    # FastMCP server (recommended)
-./venv/bin/python mcp_server_cli.py      # Legacy CLI server
+./venv/bin/python basecamp_fastmcp_http.py    # FastMCP HTTP server (actively deployed)
+./venv/bin/python basecamp_fastmcp.py         # FastMCP stdio server
+./venv/bin/python mcp_server_cli.py           # Legacy CLI server
 
 # Test the server manually
 echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}
@@ -40,10 +41,11 @@ python generate_claude_desktop_config.py   # For Claude Desktop
 
 ### Core Files
 
-| File                  | Purpose                                                                   |
-| --------------------- | ------------------------------------------------------------------------- |
-| `basecamp_fastmcp.py` | **Main MCP server** using official Anthropic FastMCP framework (79 tools) |
-| `mcp_server_cli.py`   | Legacy JSON-RPC server (same tools, custom implementation)                |
+| File                       | Purpose                                                                             |
+| -------------------------- | ------------------------------------------------------------------------------------ |
+| `basecamp_fastmcp_http.py` | **Actively deployed MCP server** — FastMCP over HTTP transport (100+ tools)          |
+| `basecamp_fastmcp.py`      | FastMCP server over stdio transport (same tool set as of the last stdio sync)        |
+| `mcp_server_cli.py`        | Legacy JSON-RPC server (same tools, custom implementation)                           |
 | `basecamp_client.py`  | Basecamp 3 API client - all HTTP methods and endpoints                    |
 | `basecamp_oauth.py`   | OAuth 2.0 client for 37signals Launchpad                                  |
 | `auth_manager.py`     | Automatic token refresh before API calls                                  |
@@ -72,19 +74,21 @@ Basecamp 3 API (https://3.basecampapi.com/{account_id})
 3. Callback stores tokens in `oauth_tokens.json` (600 permissions)
 4. MCP server uses `auth_manager.ensure_authenticated()` to auto-refresh expired tokens
 
-### Tool Categories (75 total)
+### Tool Categories (100+ total, basecamp_fastmcp_http.py)
 
-- **Projects**: `get_projects`, `get_project`
-- **Todos**: `get_todosets`, `get_todoset`, `get_todolists`, `get_todolist`, `create_todolist`, `update_todolist`, `trash_todolist`, `get_todos`, `get_todo`, `create_todo`, `update_todo`, `delete_todo`, `complete_todo`, `uncomplete_todo`, `reposition_todo`, `archive_todo`
+- **Projects**: `get_projects`, `get_project`, `create_project`, `update_project`, `archive_project`, `unarchive_project`, `trash_project`
+- **Todos**: `get_todosets`, `get_todoset`, `get_todolists`, `get_todolist`, `create_todolist`, `update_todolist`, `reposition_todolist`, `trash_todolist`, `get_todos`, `get_todo`, `create_todo`, `update_todo`, `delete_todo`, `complete_todo`, `uncomplete_todo`, `reposition_todo`, `archive_todo`
 - **Todo List Groups**: `get_todolist_groups`, `create_todolist_group`, `reposition_todolist_group`
 - **Card Tables (Kanban)**: `get_card_table`, `get_columns`, `get_cards`, `create_card`, `move_card`, `complete_card`, etc.
 - **Card Steps**: `get_card_steps`, `create_card_step`, `complete_card_step`, etc.
 - **Comments**: `get_comments`, `create_comment`
-- **Messages**: `get_message_board`, `get_messages`, `get_message`, `get_message_categories`, `create_message`
+- **Messages**: `get_message_board`, `get_messages`, `get_message`, `get_message_categories`, `create_message`, `update_message`, `pin_message`, `unpin_message`, `trash_message`
+- **My Assignments**: `get_my_assignments`, `get_my_completed_assignments`, `get_my_due_assignments`, `prioritize_assignment`, `deprioritize_assignment`, `reorder_up_next`
+- **People**: `get_people`, `get_project_people`, `update_project_access`, `get_pingable_people`, `get_person`, `get_my_profile`, `update_my_profile`, `get_my_preferences`, `update_my_preferences`
 - **Campfire (Chat)**: `get_campfire_lines`
 - **Documents**: `get_documents`, `create_document`, `update_document`, `trash_document`
 - **Inbox (Email Forwards)**: `get_inbox`, `get_forwards`, `get_forward`, `get_inbox_replies`, `get_inbox_reply`, `trash_forward`
-- **Search**: `search_basecamp`, `global_search`
+- **Search**: `search_basecamp`, `get_search_metadata`, `global_search`, `search_projects`
 - **Webhooks**: `get_webhooks`, `create_webhook`, `delete_webhook`
 - **Other**: `get_daily_check_ins`, `get_question_answers`, `get_events`, `create_attachment`, `get_uploads`
 

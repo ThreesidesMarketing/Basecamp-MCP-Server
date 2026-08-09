@@ -529,5 +529,19 @@ class TestTodolists(unittest.TestCase):
         mock_put.assert_called_once_with('todolists/groups/5/position.json', {'position': 1})
 
 
+class TestTodosets(unittest.TestCase):
+    def setUp(self):
+        self.client = make_client()
+
+    @patch.object(BasecampClient, 'get')
+    def test_get_todoset_by_id_uses_flat_route(self, mock_get):
+        mock_get.return_value = make_response(200, {"id": 3})
+
+        result = self.client.get_todoset('999', todoset_id='3')
+
+        self.assertEqual(result, {"id": 3})
+        mock_get.assert_called_once_with('todosets/3.json')
+
+
 if __name__ == '__main__':
     unittest.main()

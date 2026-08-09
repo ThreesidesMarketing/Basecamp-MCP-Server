@@ -272,7 +272,7 @@ class BasecampClient:
         """
         if todoset_id:
             # Get specific todoset by ID
-            endpoint = f'buckets/{project_id}/todosets/{todoset_id}.json'
+            endpoint = f'todosets/{todoset_id}.json'
             response = self.get(endpoint)
             if response.status_code == 200:
                 return response.json()

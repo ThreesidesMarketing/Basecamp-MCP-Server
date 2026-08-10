@@ -163,6 +163,8 @@ class BasecampClient:
         response = self.post('projects.json', data)
         if response.status_code == 201:
             return response.json()
+        elif response.status_code == 507:
+            raise Exception(f"Cannot create project: account is on a free plan and has reached its project limit. Upgrade the subscription to create more projects. {response.text}")
         else:
             raise Exception(f"Failed to create project: {response.status_code} - {response.text}")
 
@@ -222,6 +224,8 @@ class BasecampClient:
         response = self.put(f'projects/{project_id}/status/active.json')
         if response.status_code == 204:
             return True
+        elif response.status_code == 507:
+            raise Exception(f"Cannot unarchive project: account is on a free plan and has reached its project limit. Upgrade the subscription or trash another project to restore this one. {response.text}")
         else:
             raise Exception(f"Failed to unarchive project: {response.status_code} - {response.text}")
 

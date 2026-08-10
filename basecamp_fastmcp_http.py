@@ -217,7 +217,7 @@ async def search_basecamp(
                 bucket_ids=[b.strip() for b in bucket_ids.split(',') if b.strip()] if bucket_ids else None,
                 creator_ids=[c.strip() for c in creator_ids.split(',') if c.strip()] if creator_ids else None,
                 file_type=file_type if file_type else None,
-                exclude_chat=exclude_chat if exclude_chat else None,
+                exclude_chat=exclude_chat,
                 since=since if since else None,
                 sort=sort if sort else None,
                 page=page,
@@ -228,7 +228,7 @@ async def search_basecamp(
             "status": "success",
             "query": query,
             "results": results,
-            "count": len(results),
+            "count": len(results) if isinstance(results, list) else None,
         }
     except Exception as e:
         logger.error(f"Error searching Basecamp: {e}")
@@ -368,7 +368,7 @@ async def get_todo(project_id: str, todo_id: str) -> Dict[str, Any]:
     """Get a single todo item by its ID.
 
     Args:
-        project_id: Project ID
+        project_id: Project ID. Kept for backward compatibility; the request is scoped by the record's own ID alone.
         todo_id: The todo ID
     """
     client = await _get_basecamp_client()
@@ -447,9 +447,9 @@ async def update_todo(project_id, todo_id,
                      due_on="__NOT_SET__", 
                      starts_on="__NOT_SET__"):
     """Update an existing todo item.
-    
+
     Args:
-        project_id: Project ID
+        project_id: Project ID. Kept for backward compatibility; the request is scoped by the record's own ID alone.
         todo_id: The todo ID
         content: The todo item's text
         description: HTML description of the todo
@@ -515,7 +515,7 @@ async def delete_todo(project_id: str, todo_id: str) -> Dict[str, Any]:
     Trashed todos can be recovered from the Basecamp web UI within 30 days.
 
     Args:
-        project_id: Project ID
+        project_id: Project ID. Kept for backward compatibility; the request is scoped by the record's own ID alone.
         todo_id: The todo ID
     """
     client = await _get_basecamp_client()
@@ -543,9 +543,9 @@ async def delete_todo(project_id: str, todo_id: str) -> Dict[str, Any]:
 @mcp.tool()
 async def complete_todo(project_id: str, todo_id: str) -> Dict[str, Any]:
     """Mark a todo item as complete.
-    
+
     Args:
-        project_id: Project ID
+        project_id: Project ID. Kept for backward compatibility; the request is scoped by the record's own ID alone.
         todo_id: The todo ID
     """
     client = await _get_basecamp_client()
@@ -574,9 +574,9 @@ async def complete_todo(project_id: str, todo_id: str) -> Dict[str, Any]:
 @mcp.tool()
 async def uncomplete_todo(project_id: str, todo_id: str) -> Dict[str, Any]:
     """Mark a todo item as incomplete.
-    
+
     Args:
-        project_id: Project ID
+        project_id: Project ID. Kept for backward compatibility; the request is scoped by the record's own ID alone.
         todo_id: The todo ID
     """
     client = await _get_basecamp_client()
@@ -609,7 +609,7 @@ async def archive_todo(project_id: str, todo_id: str) -> Dict[str, Any]:
     via the Basecamp web UI.
 
     Args:
-        project_id: Project ID
+        project_id: Project ID. Kept for backward compatibility; the request is scoped by the record's own ID alone.
         todo_id: The todo ID
     """
     client = await _get_basecamp_client()
@@ -636,7 +636,7 @@ async def reposition_todo(
     """Reposition a todo within its list, or move it to another list or group.
 
     Args:
-        project_id: The project ID
+        project_id: The project ID. Kept for backward compatibility; the request is scoped by the record's own ID alone.
         todo_id: The todo ID
         position: New 1-based position within the target list
         parent_id: ID of the target todolist or group to move the todo into.
@@ -856,7 +856,7 @@ async def get_message(project_id: str, message_id: str) -> Dict[str, Any]:
     """Get a specific message by ID.
 
     Args:
-        project_id: The project ID
+        project_id: The project ID. Kept for backward compatibility; the request is scoped by the record's own ID alone.
         message_id: The message ID
     """
     client = await _get_basecamp_client()
@@ -977,12 +977,15 @@ async def update_message(message_id: str, subject: str = "", content: str = "",
         content: New HTML body. Leave blank to keep the current content.
         category_id: New message type/category ID
         subscriptions: Optional list of person IDs to recompute subscribers.
-            Omit both subscriptions and notify to keep the message's current subscribers.
+            Omit subscriptions to keep the message's current subscribers (notify is always sent).
         notify: Whether to notify newly added subscribers
     """
     client = await _get_basecamp_client()
     if not client:
         return _get_auth_error_response()
+
+    if not subject and not content and not category_id and subscriptions is None:
+        return {"error": "Invalid input", "message": "At least one of subject, content, category_id, or subscriptions must be provided"}
 
     try:
         message = await _run_sync(
@@ -2528,7 +2531,7 @@ async def get_todolist(project_id: str, todolist_id: str) -> Dict[str, Any]:
     """Get a specific todo list by ID.
 
     Args:
-        project_id: The project ID
+        project_id: The project ID. Kept for backward compatibility; the request is scoped by the record's own ID alone.
         todolist_id: The todo list ID
     """
     client = await _get_basecamp_client()
@@ -2615,7 +2618,7 @@ async def reposition_todolist(
     """Reposition a to-do list within its to-do set.
 
     Args:
-        project_id: The project ID
+        project_id: The project ID. Kept for backward compatibility; the request is scoped by the record's own ID alone.
         todolist_id: The todo list ID
         position: New 1-based position among incomplete lists
     """
@@ -2645,7 +2648,7 @@ async def trash_todolist(project_id: str, todolist_id: str) -> Dict[str, Any]:
     Trashed lists can be recovered from the Basecamp web UI within 30 days.
 
     Args:
-        project_id: The project ID
+        project_id: The project ID. Kept for backward compatibility; the request is scoped by the record's own ID alone.
         todolist_id: The todo list ID
     """
     client = await _get_basecamp_client()

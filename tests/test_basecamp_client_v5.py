@@ -347,6 +347,25 @@ class TestProjects(unittest.TestCase):
         self.assertTrue(result)
         mock_put.assert_called_once_with('projects/1/status/active.json')
 
+    @patch.object(BasecampClient, 'post')
+    def test_create_project_507_raises_distinct_error(self, mock_post):
+        mock_post.return_value = make_response(507, {"error": "storage"})
+
+        with self.assertRaises(Exception) as ctx:
+            self.client.create_project('New')
+
+        self.assertIn('free plan', str(ctx.exception))
+        self.assertIn('project limit', str(ctx.exception))
+
+    @patch.object(BasecampClient, 'put')
+    def test_unarchive_project_507_raises_distinct_error(self, mock_put):
+        mock_put.return_value = make_response(507, {"error": "storage"})
+
+        with self.assertRaises(Exception) as ctx:
+            self.client.unarchive_project('1')
+
+        self.assertIn('project limit', str(ctx.exception))
+
     @patch.object(BasecampClient, 'delete')
     def test_trash_project(self, mock_delete):
         mock_delete.return_value = make_response(204)

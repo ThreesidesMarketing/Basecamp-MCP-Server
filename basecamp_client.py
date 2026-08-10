@@ -516,7 +516,15 @@ class BasecampClient:
                     completion_subscriber_ids=None, notify=None, due_on=None, starts_on=None):
         """
         Update an existing todo item.
-        
+
+        `PUT /todos/{id}.json` is a full-replace endpoint: any parameter left
+        out of the request body clears its existing value server-side (e.g.
+        missing assignee_ids clears all assignees). To give callers real
+        partial-update semantics, any parameter left as None here is
+        backfilled from the todo's current state before the request is sent.
+        Pass an empty list/string explicitly to clear a field instead of
+        leaving it unset.
+
         Args:
             project_id (str): Project ID
             todo_id (str): Todo ID
@@ -527,31 +535,43 @@ class BasecampClient:
             notify (bool, optional): Whether to notify assignees
             due_on (str, optional): Due date in YYYY-MM-DD format
             starts_on (str, optional): Start date in YYYY-MM-DD format
-            
+
         Returns:
             dict: The updated todo
         """
+        if all(v is None for v in [content, description, assignee_ids,
+                                    completion_subscriber_ids, notify, due_on, starts_on]):
+            raise ValueError("No fields provided to update")
+
         endpoint = f'todos/{todo_id}.json'
-        data = {}
-        
-        if content is not None:
-            data['content'] = content
-        if description is not None:
-            data['description'] = description
-        if assignee_ids is not None:
-            data['assignee_ids'] = assignee_ids
-        if completion_subscriber_ids is not None:
-            data['completion_subscriber_ids'] = completion_subscriber_ids
+
+        if (content is None or description is None or assignee_ids is None
+                or completion_subscriber_ids is None or due_on is None or starts_on is None):
+            current = self.get_todo(project_id, todo_id)
+            if content is None:
+                content = current.get('content')
+            if description is None:
+                description = current.get('description')
+            if assignee_ids is None:
+                assignee_ids = [person['id'] for person in current.get('assignees') or []]
+            if completion_subscriber_ids is None:
+                completion_subscriber_ids = [person['id'] for person in current.get('completion_subscribers') or []]
+            if due_on is None:
+                due_on = current.get('due_on')
+            if starts_on is None:
+                starts_on = current.get('starts_on')
+
+        data = {
+            'content': content,
+            'description': description,
+            'assignee_ids': assignee_ids,
+            'completion_subscriber_ids': completion_subscriber_ids,
+            'due_on': due_on,
+            'starts_on': starts_on,
+        }
         if notify is not None:
             data['notify'] = notify
-        if due_on is not None:
-            data['due_on'] = due_on
-        if starts_on is not None:
-            data['starts_on'] = starts_on
 
-        if not data:
-            raise ValueError("No fields provided to update")
-            
         response = self.put(endpoint, data)
         if response.status_code == 200:
             return response.json()

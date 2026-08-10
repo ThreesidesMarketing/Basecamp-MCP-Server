@@ -438,14 +438,17 @@ async def create_todo(project_id, todolist_id, content, description="", notify=F
         }
 
 @mcp.tool()
-async def update_todo(project_id, todo_id, 
-                     content="__NOT_SET__",
-                     description="__NOT_SET__", 
-                     assignee_ids=None,
-                     completion_subscriber_ids=None,
-                     notify=False,
-                     due_on="__NOT_SET__", 
-                     starts_on="__NOT_SET__"):
+async def update_todo(
+    project_id: str,
+    todo_id: str,
+    content: str = "__NOT_SET__",
+    description: str = "__NOT_SET__",
+    assignee_ids: Optional[List[int]] = None,
+    completion_subscriber_ids: Optional[List[int]] = None,
+    notify: bool = False,
+    due_on: str = "__NOT_SET__",
+    starts_on: str = "__NOT_SET__",
+) -> Dict[str, Any]:
     """Update an existing todo item.
 
     Args:

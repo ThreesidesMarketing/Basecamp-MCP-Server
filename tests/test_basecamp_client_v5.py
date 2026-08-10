@@ -409,8 +409,14 @@ class TestTodos(unittest.TestCase):
         endpoint = mock_post.call_args[0][0]
         self.assertEqual(endpoint, 'todolists/3/todos.json')
 
+    @patch.object(BasecampClient, 'get')
     @patch.object(BasecampClient, 'put')
-    def test_update_todo_uses_flat_route(self, mock_put):
+    def test_update_todo_uses_flat_route(self, mock_put, mock_get):
+        mock_get.return_value = make_response(200, {
+            "id": 2, "content": "Old", "description": None,
+            "assignees": [], "completion_subscribers": [],
+            "due_on": None, "starts_on": None,
+        })
         mock_put.return_value = make_response(200, {"id": 2})
 
         result = self.client.update_todo('999', '2', content='Updated')
@@ -418,6 +424,53 @@ class TestTodos(unittest.TestCase):
         self.assertEqual(result, {"id": 2})
         endpoint = mock_put.call_args[0][0]
         self.assertEqual(endpoint, 'todos/2.json')
+
+    @patch.object(BasecampClient, 'get')
+    @patch.object(BasecampClient, 'put')
+    def test_update_todo_preserves_existing_assignees_when_omitted(self, mock_put, mock_get):
+        # Regression test: PUT /todos/{id}.json is a full-replace endpoint --
+        # Basecamp clears any field left out of the request body. Omitting
+        # assignee_ids on an update must NOT wipe existing assignees.
+        mock_get.return_value = make_response(200, {
+            "id": 2, "content": "Old content", "description": "desc",
+            "assignees": [{"id": 5}, {"id": 9}],
+            "completion_subscribers": [{"id": 7}],
+            "due_on": "2026-09-01", "starts_on": None,
+        })
+        mock_put.return_value = make_response(200, {"id": 2})
+
+        self.client.update_todo('999', '2', due_on='2026-10-06')
+
+        mock_get.assert_called_once_with('todos/2.json')
+        data = mock_put.call_args[0][1]
+        self.assertEqual(data['due_on'], '2026-10-06')
+        self.assertEqual(data['content'], 'Old content')
+        self.assertEqual(data['assignee_ids'], [5, 9])
+        self.assertEqual(data['completion_subscriber_ids'], [7])
+
+    @patch.object(BasecampClient, 'get')
+    @patch.object(BasecampClient, 'put')
+    def test_update_todo_allows_explicit_clear_of_assignees(self, mock_put, mock_get):
+        mock_get.return_value = make_response(200, {
+            "id": 2, "content": "Old content", "description": None,
+            "assignees": [{"id": 5}], "completion_subscribers": [],
+            "due_on": None, "starts_on": None,
+        })
+        mock_put.return_value = make_response(200, {"id": 2})
+
+        self.client.update_todo('999', '2', assignee_ids=[])
+
+        data = mock_put.call_args[0][1]
+        self.assertEqual(data['assignee_ids'], [])
+
+    @patch.object(BasecampClient, 'get')
+    @patch.object(BasecampClient, 'put')
+    def test_update_todo_raises_when_no_fields_given(self, mock_put, mock_get):
+        with self.assertRaises(ValueError):
+            self.client.update_todo('999', '2')
+
+        mock_get.assert_not_called()
+        mock_put.assert_not_called()
 
     @patch.object(BasecampClient, 'put')
     def test_delete_todo_uses_flat_recordings_route(self, mock_put):

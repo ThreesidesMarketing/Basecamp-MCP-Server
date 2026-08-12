@@ -1016,13 +1016,29 @@ class BasecampClient:
             raise Exception(f"Failed to update my preferences: {response.status_code} - {response.text}")
 
     # Campfire (chat) methods
-    def get_campfires(self, project_id):
-        """Get the campfire for a project."""
-        response = self.get(f'buckets/{project_id}/chats.json')
-        if response.status_code == 200:
-            return response.json()
-        else:
-            raise Exception(f"Failed to get campfire: {response.status_code} - {response.text}")
+    def get_campfire(self, project_id):
+        """Get the campfire (chat) for a project.
+
+        The campfire ID is discovered from the project's dock array,
+        following the same pattern as get_message_board().
+
+        Args:
+            project_id: Project/bucket ID
+
+        Returns:
+            dict: Campfire details including id, title, lines_url, etc.
+        """
+        project = self.get_project(project_id)
+        try:
+            dock_item = next(_ for _ in project["dock"] if _["name"] == "chat")
+            chat_id = dock_item['id']
+            response = self.get(f'buckets/{project_id}/chats/{chat_id}.json')
+            if response.status_code == 200:
+                return response.json()
+            else:
+                raise Exception(f"Failed to get campfire: {response.status_code} - {response.text}")
+        except (IndexError, TypeError, StopIteration):
+            raise Exception(f"No campfire found for project: {project_id}")
 
     def get_campfire_lines(self, project_id, campfire_id):
         """Get chat lines from a campfire."""

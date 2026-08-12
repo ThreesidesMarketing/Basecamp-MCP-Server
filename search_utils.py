@@ -579,15 +579,14 @@ class BasecampSearch:
             for project in projects:
                 project_id = project["id"]
                 try:
-                    campfires = self.client.get_campfires(project_id)
-                    for campfire in campfires:
-                        campfire_id = campfire["id"]
-                        lines = self.client.get_campfire_lines(project_id, campfire_id)
+                    campfire = self.client.get_campfire(project_id)
+                    campfire_id = campfire["id"]
+                    lines = self.client.get_campfire_lines(project_id, campfire_id)
 
-                        for line in lines:
-                            line["project"] = {"id": project_id, "name": project.get("name")}
-                            line["campfire"] = {"id": campfire_id, "title": campfire.get("title")}
-                            all_lines.append(line)
+                    for line in lines:
+                        line["project"] = {"id": project_id, "name": project.get("name")}
+                        line["campfire"] = {"id": campfire_id, "title": campfire.get("title")}
+                        all_lines.append(line)
                 except Exception as e:
                     logger.error(f"Error getting campfire lines for project {project_id}: {str(e)}")
 

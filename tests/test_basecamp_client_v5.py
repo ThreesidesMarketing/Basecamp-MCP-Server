@@ -55,6 +55,34 @@ class TestMessageBoards(unittest.TestCase):
         self.assertEqual(second_call_endpoint, 'message_boards/555.json')
 
 
+class TestCampfire(unittest.TestCase):
+    def setUp(self):
+        self.client = make_client()
+
+    @patch.object(BasecampClient, 'get')
+    def test_get_campfire_discovers_via_dock(self, mock_get):
+        project_response = make_response(200, {
+            "dock": [{"name": "chat", "id": 777}]
+        })
+        campfire_response = make_response(200, {"id": 777, "title": "Chat"})
+        mock_get.side_effect = [project_response, campfire_response]
+
+        result = self.client.get_campfire('999')
+
+        self.assertEqual(result, {"id": 777, "title": "Chat"})
+        second_call_endpoint = mock_get.call_args_list[1][0][0]
+        self.assertEqual(second_call_endpoint, 'buckets/999/chats/777.json')
+
+    @patch.object(BasecampClient, 'get')
+    def test_get_campfire_raises_when_no_chat_in_dock(self, mock_get):
+        mock_get.return_value = make_response(200, {"dock": [{"name": "message_board", "id": 1}]})
+
+        with self.assertRaises(Exception) as ctx:
+            self.client.get_campfire('999')
+
+        self.assertIn('No campfire found', str(ctx.exception))
+
+
 class TestComments(unittest.TestCase):
     def setUp(self):
         self.client = make_client()

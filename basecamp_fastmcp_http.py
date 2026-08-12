@@ -881,6 +881,35 @@ async def get_campfire_lines(project_id: str, campfire_id: str) -> Dict[str, Any
         }
 
 @mcp.tool()
+async def get_campfire(project_id: str) -> Dict[str, Any]:
+    """Get the campfire (chat room) for a project.
+
+    Args:
+        project_id: The project ID
+    """
+    client = await _get_basecamp_client()
+    if not client:
+        return _get_auth_error_response()
+
+    try:
+        campfire = await _run_sync(client.get_campfire, project_id)
+        return {
+            "status": "success",
+            "campfire": campfire
+        }
+    except Exception as e:
+        logger.error(f"Error getting campfire: {e}")
+        if "401" in str(e) and "expired" in str(e).lower():
+            return {
+                "error": "OAuth token expired",
+                "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."
+            }
+        return {
+            "error": "Execution error",
+            "message": str(e)
+        }
+
+@mcp.tool()
 async def get_message_board(project_id: str) -> Dict[str, Any]:
     """Get the message board for a project.
 

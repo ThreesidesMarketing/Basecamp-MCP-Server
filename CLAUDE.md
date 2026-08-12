@@ -81,11 +81,13 @@ Basecamp 3 API (https://3.basecampapi.com/{account_id})
 - **Todo List Groups**: `get_todolist_groups`, `create_todolist_group`, `reposition_todolist_group`
 - **Card Tables (Kanban)**: `get_card_table`, `get_columns`, `get_cards`, `create_card`, `move_card`, `complete_card`, etc.
 - **Card Steps**: `get_card_steps`, `create_card_step`, `complete_card_step`, etc.
-- **Comments**: `get_comments`, `create_comment`
+- **Comments**: `get_comments`, `create_comment`, `get_comment`, `update_comment`, `trash_comment`
 - **Messages**: `get_message_board`, `get_messages`, `get_message`, `get_message_categories`, `create_message`, `update_message`, `pin_message`, `unpin_message`, `trash_message`
 - **My Assignments**: `get_my_assignments`, `get_my_completed_assignments`, `get_my_due_assignments`, `prioritize_assignment`, `deprioritize_assignment`, `reorder_up_next`
 - **People**: `get_people`, `get_project_people`, `update_project_access`, `get_pingable_people`, `get_person`, `get_my_profile`, `update_my_profile`, `get_my_preferences`, `update_my_preferences`
-- **Campfire (Chat)**: `get_campfire_lines`
+- **Campfire (Chat)**: `get_campfire_lines`, `get_campfire`
+- **Schedule**: `get_schedule`, `get_schedule_entries`
+- **External Links**: `get_external_links`, `get_external_link`, `create_external_link`, `rename_external_link`, `trash_external_link`
 - **Documents**: `get_documents`, `create_document`, `update_document`, `trash_document`
 - **Inbox (Email Forwards)**: `get_inbox`, `get_forwards`, `get_forward`, `get_inbox_replies`, `get_inbox_reply`, `trash_forward`
 - **Search**: `search_basecamp`, `get_search_metadata`, `global_search`, `search_projects`
@@ -96,7 +98,7 @@ Basecamp 3 API (https://3.basecampapi.com/{account_id})
 
 Maps every doc in [basecamp/bc-api/sections](https://github.com/basecamp/bc-api/tree/master/sections) (the Basecamp 4 API reference) against `basecamp_fastmcp_http.py`'s tool set. **Full** = every documented endpoint has a tool. **Partial** = some endpoints covered, gap noted. **None** = zero tool coverage. **N/A** = conceptual doc, not a CRUD resource. Last audited 2026-08-12 (64 sections).
 
-**Summary: 19 Full · 9 Partial · 33 None · 3 N/A**
+**Summary: 20 Full · 10 Partial · 30 None · 3 N/A**
 
 ### Projects & account
 
@@ -141,8 +143,8 @@ Maps every doc in [basecamp/bc-api/sections](https://github.com/basecamp/bc-api/
 | `message_boards.md` | Full | `get_message_board` |
 | `messages.md` | Full | `get_messages`, `get_message`, `create_message`, `update_message`, `pin_message`, `unpin_message`, `trash_message` |
 | `message_types.md` | Partial | List-only (`get_message_categories`); missing get-single, create, update, delete |
-| `campfires.md` | Partial | Only line-reading covered (`get_campfire_lines`); missing create/update/delete line, get single campfire/line, campfire uploads. List-all-campfires exists unexposed in `basecamp_client.py` (`get_campfires`) |
-| `comments.md` | Partial | `get_comments`/`create_comment` covered; get-single and update exist unexposed in `basecamp_client.py` (`get_comment`, `update_comment`) |
+| `campfires.md` | Partial | Line-reading covered (`get_campfire_lines`); get-single-campfire covered (`get_campfire`); missing create/update/delete line, campfire uploads |
+| `comments.md` | Full | `get_comments`, `create_comment`, `get_comment`, `update_comment`, `trash_comment` all covered |
 
 ### Documents & files (Vault)
 
@@ -170,8 +172,8 @@ Maps every doc in [basecamp/bc-api/sections](https://github.com/basecamp/bc-api/
 
 | Section | Status | Notes |
 | --- | --- | --- |
-| `schedules.md` | None | `get_schedule` exists unexposed in `basecamp_client.py`; update not implemented at all |
-| `schedule_entries.md` | None | `get_schedule_entries` exists unexposed in `basecamp_client.py`; create/update/occurrence lookups missing entirely |
+| `schedules.md` | Partial | `get_schedule` covered; update-a-schedule still missing |
+| `schedule_entries.md` | Partial | `get_schedule_entries` covered (list); get-single, create, update, occurrence-lookup still missing |
 | `calendars.md` | None | No get calendar or update calendar color |
 | `questionnaires.md` | None | No tool fetches the questionnaire resource itself |
 | `questions.md` | Partial | List-only, via `get_daily_check_ins`; missing get/create/update/pause/resume/notification-settings |
@@ -210,7 +212,7 @@ Maps every doc in [basecamp/bc-api/sections](https://github.com/basecamp/bc-api/
 | --- | --- | --- |
 | `webhooks.md` | Partial | `get_webhooks`, `create_webhook`, `delete_webhook`; missing get-single (with deliveries) and update |
 | `chatbots.md` | None | No list/get/create/update/delete chatbots or post-as-chatbot |
-| `external_links.md` | None | No dock/external-link list, get, create, rename, or trash |
+| `external_links.md` | Partial | `get_external_links`, `get_external_link`, `create_external_link`, `rename_external_link`, `trash_external_link` all covered; changing URL/service/description not in scope (no reliable API in bc-api docs) |
 | `lineup_markers.md` | None | No Lineup marker list/create/update/delete |
 | `gauges.md` | None | No gauge/gauge-needle read, create, update, delete, or toggle |
 | `hill_charts.md` | None | No get hill chart data or update hill settings |

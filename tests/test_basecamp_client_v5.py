@@ -321,6 +321,68 @@ class TestVaults(unittest.TestCase):
 
         self.assertIn("Failed to get vault", str(ctx.exception))
 
+    @patch.object(BasecampClient, 'get')
+    def test_get_vault_children_uses_root_vault_when_not_given(self, mock_get):
+        project_response = make_response(200, {"dock": [{"name": "vault", "id": 777}]})
+        vault_response = make_response(200, {"id": 777, "title": "Docs & Files"})
+        children_response = make_response(200, [
+            {"id": 1, "title": "HR Stuff", "type": "Vault"},
+            {"id": 2, "title": "Brand assets", "type": "CloudFile"},
+        ])
+        mock_get.side_effect = [project_response, vault_response, children_response]
+
+        result = self.client.get_vault_children('999')
+
+        self.assertEqual(result, [
+            {"id": 1, "title": "HR Stuff", "type": "Vault"},
+            {"id": 2, "title": "Brand assets", "type": "CloudFile"},
+        ])
+        third_call_endpoint = mock_get.call_args_list[2][0][0]
+        self.assertEqual(third_call_endpoint, 'buckets/999/vaults/777/children.json')
+
+    @patch.object(BasecampClient, 'get')
+    def test_get_vault_children_with_explicit_parent_id(self, mock_get):
+        mock_get.return_value = make_response(200, [{"id": 2, "title": "Materials", "type": "Vault"}])
+
+        result = self.client.get_vault_children('999', '42')
+
+        self.assertEqual(result, [{"id": 2, "title": "Materials", "type": "Vault"}])
+        endpoint = mock_get.call_args[0][0]
+        params = mock_get.call_args[1]['params']
+        self.assertEqual(endpoint, 'buckets/999/vaults/42/children.json')
+        self.assertEqual(params, {'page': 1})
+
+    @patch.object(BasecampClient, 'get')
+    def test_get_vault_children_paginates(self, mock_get):
+        page_one = make_response(
+            200,
+            [{"id": 1, "title": "HR Stuff", "type": "Vault"}],
+            headers={"Link": '<https://3.basecampapi.com/12345/buckets/999/vaults/42/children.json?page=2>; rel="next"'},
+        )
+        page_two = make_response(200, [{"id": 2, "title": "Brand assets", "type": "CloudFile"}])
+        mock_get.side_effect = [page_one, page_two]
+
+        result = self.client.get_vault_children('999', '42')
+
+        self.assertEqual(result, [
+            {"id": 1, "title": "HR Stuff", "type": "Vault"},
+            {"id": 2, "title": "Brand assets", "type": "CloudFile"},
+        ])
+        self.assertEqual(mock_get.call_count, 2)
+        first_params = mock_get.call_args_list[0][1]['params']
+        second_params = mock_get.call_args_list[1][1]['params']
+        self.assertEqual(first_params, {'page': 1})
+        self.assertEqual(second_params, {'page': 2})
+
+    @patch.object(BasecampClient, 'get')
+    def test_get_vault_children_raises_on_failure(self, mock_get):
+        mock_get.return_value = make_response(500, "Server Error")
+
+        with self.assertRaises(Exception) as ctx:
+            self.client.get_vault_children('999', '42')
+
+        self.assertIn("Failed to get vault children", str(ctx.exception))
+
 
 class TestComments(unittest.TestCase):
     def setUp(self):

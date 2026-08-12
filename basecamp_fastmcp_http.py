@@ -2666,6 +2666,36 @@ async def get_vault(project_id: str, vault_id: str = "") -> Dict[str, Any]:
             "message": str(e)
         }
 
+@mcp.tool()
+async def get_vault_children(project_id: str, vault_id: str = "") -> Dict[str, Any]:
+    """List everything filed directly under a vault (sub-vaults, cloud files, docs, uploads). Uses the project's root vault if vault_id is omitted.
+
+    Args:
+        project_id: Project ID
+        vault_id: Optional parent vault ID. If omitted, lists children of the project's root vault.
+    """
+    client = await _get_basecamp_client()
+    if not client:
+        return _get_auth_error_response()
+
+    try:
+        children = await _run_sync(client.get_vault_children, project_id, vault_id if vault_id else None)
+        return {
+            "status": "success",
+            "children": children,
+            "count": len(children)
+        }
+    except Exception as e:
+        logger.error(f"Error getting vault children: {e}")
+        if "401" in str(e) and "expired" in str(e).lower():
+            return {
+                "error": "OAuth token expired",
+                "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."
+            }
+        return {
+            "error": "Execution error",
+            "message": str(e)
+        }
 
 # Document Management
 @mcp.tool()

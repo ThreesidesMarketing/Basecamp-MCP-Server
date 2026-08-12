@@ -2025,6 +2025,53 @@ class BasecampClient:
         else:
             raise Exception(f"Failed to get vault: {response.status_code} - {response.text}")
 
+    def get_vault_children(self, project_id, vault_id=None):
+        """Get everything filed directly under a vault, handling pagination.
+
+        Unlike the documented `vaults/{id}/vaults.json` endpoint (which
+        only returns nested sub-vaults), this uses the vault's own
+        `children_url` route, which returns every child type Basecamp
+        allows directly under a vault: nested Vaults (sub-folders) and
+        CloudFiles (embedded Google Drive/Dropbox/Box/etc. links) at
+        minimum. Each item's own "type" field tells you which.
+
+        If vault_id is not provided, lists the children of the project's
+        root vault.
+
+        Args:
+            project_id (str): The project ID
+            vault_id (str, optional): Parent vault ID. If omitted, the
+                project's root vault is used as the parent.
+
+        Returns:
+            list: Child items (mixed types; see item["type"])
+        """
+        if not vault_id:
+            vault_id = self.get_vault(project_id)['id']
+
+        endpoint = f"buckets/{project_id}/vaults/{vault_id}/children.json"
+
+        all_children = []
+        page = 1
+
+        while True:
+            response = self.get(endpoint, params={"page": page})
+            if response.status_code != 200:
+                raise Exception(f"Failed to get vault children: {response.status_code} - {response.text}")
+
+            page_items = response.json() or []
+            all_children.extend(page_items)
+
+            link_header = response.headers.get("Link", "")
+            has_next = 'rel="next"' in link_header if link_header else False
+
+            if not page_items or not has_next:
+                break
+
+            page += 1
+
+        return all_children
+
     # Search methods
     def get_search_metadata(self):
         """Get valid filter options for search (type_names[] and file_type values).

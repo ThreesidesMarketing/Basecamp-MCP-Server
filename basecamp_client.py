@@ -2052,3 +2052,121 @@ class BasecampClient:
             return response.json()
         else:
             raise Exception(f"Failed to search: {response.status_code} - {response.text}")
+
+    # External link methods (dock tools historically called "doors")
+    def get_external_links(self, project_id=None, status=None):
+        """
+        List external links via the flat, generic recordings endpoint.
+
+        This is the only endpoint that returns an external link's full
+        shape (url, service, description) -- get_external_link() omits them.
+
+        Args:
+            project_id: Optional project/bucket ID to scope to. Omit to
+                list external links across every active project visible
+                to the current user.
+            status (str): Optional filter -- 'active', 'archived', or
+                'trashed'.
+
+        Returns:
+            list: External links
+        """
+        params = {'type': 'Door'}
+        if project_id:
+            params['bucket'] = project_id
+        if status:
+            params['status'] = status
+        response = self.get('projects/recordings.json', params=params)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise Exception(f"Failed to get external links: {response.status_code} - {response.text}")
+
+    def get_external_link(self, link_id):
+        """
+        Get a single external link via the generic dock-tool endpoint.
+
+        Note: this envelope's `url` is the Basecamp redirector, not the
+        outside address, and it omits `service`/`description`. Use
+        get_external_links() when you need the full shape.
+
+        Args:
+            link_id: External link ID
+
+        Returns:
+            dict: External link details
+        """
+        response = self.get(f'dock/tools/{link_id}.json')
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise Exception(f"Failed to get external link: {response.status_code} - {response.text}")
+
+    def create_external_link(self, project_id, service, url, title=None, description=None):
+        """
+        Create an external link (dock 'door' tool) in a project.
+
+        Args:
+            project_id: Project/bucket ID
+            service (str): Short service identifier -- e.g. 'figma',
+                'dropbox', 'google_drive', 'github', 'notion', 'trello',
+                'slack', 'zoom', or 'other'.
+            url (str): HTTP/HTTPS address the link points to.
+            title (str): Optional display name. Defaults to "Untitled".
+            description (str): Optional rich-text (HTML) description.
+
+        Returns:
+            bool: True if the link was created.
+
+        Note: Basecamp returns a bodyless 302 on success with no ID --
+        call get_external_links(project_id) afterward to find the new
+        link.
+        """
+        door = {'service': service, 'url': url}
+        if title is not None:
+            door['title'] = title
+        if description is not None:
+            door['description'] = description
+        endpoint = f'buckets/{project_id}/dock/doors.json'
+        response = self.post(endpoint, {'door': door})
+        if response.status_code in (200, 302):
+            return True
+        else:
+            raise Exception(f"Failed to create external link: {response.status_code} - {response.text}")
+
+    def rename_external_link(self, link_id, title):
+        """
+        Rename an external link via the generic dock-tool endpoint.
+
+        Only the title can be changed this way -- there is no reliable
+        JSON endpoint to change url/service/description after creation.
+
+        Args:
+            link_id: External link ID
+            title (str): New display name
+
+        Returns:
+            dict: Updated external link
+        """
+        response = self.put(f'dock/tools/{link_id}.json', {'title': title})
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise Exception(f"Failed to rename external link: {response.status_code} - {response.text}")
+
+    def trash_external_link(self, link_id):
+        """
+        Trash (soft-delete) an external link via the generic dock-tool
+        endpoint.
+
+        Args:
+            link_id: External link ID
+
+        Returns:
+            bool: True if successful
+        """
+        response = self.delete(f'dock/tools/{link_id}.json')
+        if response.status_code == 204:
+            return True
+        else:
+            raise Exception(f"Failed to trash external link: {response.status_code} - {response.text}")

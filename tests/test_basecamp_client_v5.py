@@ -124,6 +124,83 @@ class TestSchedule(unittest.TestCase):
         self.assertEqual(third_call_endpoint, 'buckets/999/schedules/444/entries.json')
 
 
+class TestExternalLinks(unittest.TestCase):
+    def setUp(self):
+        self.client = make_client()
+
+    @patch.object(BasecampClient, 'get')
+    def test_get_external_links_scoped_to_project(self, mock_get):
+        mock_get.return_value = make_response(200, [{"id": 1, "title": "Design system", "url": "https://figma.com/x"}])
+
+        result = self.client.get_external_links(project_id='999')
+
+        self.assertEqual(result, [{"id": 1, "title": "Design system", "url": "https://figma.com/x"}])
+        endpoint = mock_get.call_args[0][0]
+        params = mock_get.call_args[1]['params']
+        self.assertEqual(endpoint, 'projects/recordings.json')
+        self.assertEqual(params, {'type': 'Door', 'bucket': '999'})
+
+    @patch.object(BasecampClient, 'get')
+    def test_get_external_links_unscoped(self, mock_get):
+        mock_get.return_value = make_response(200, [])
+
+        self.client.get_external_links()
+
+        params = mock_get.call_args[1]['params']
+        self.assertEqual(params, {'type': 'Door'})
+
+    @patch.object(BasecampClient, 'get')
+    def test_get_external_link(self, mock_get):
+        mock_get.return_value = make_response(200, {"id": 1, "title": "Design system"})
+
+        result = self.client.get_external_link('1')
+
+        self.assertEqual(result, {"id": 1, "title": "Design system"})
+        mock_get.assert_called_once_with('dock/tools/1.json')
+
+    @patch.object(BasecampClient, 'post')
+    def test_create_external_link_required_fields_only(self, mock_post):
+        mock_post.return_value = make_response(302)
+
+        result = self.client.create_external_link('999', 'figma', 'https://figma.com/file/abc')
+
+        self.assertTrue(result)
+        endpoint, data = mock_post.call_args[0]
+        self.assertEqual(endpoint, 'buckets/999/dock/doors.json')
+        self.assertEqual(data, {'door': {'service': 'figma', 'url': 'https://figma.com/file/abc'}})
+
+    @patch.object(BasecampClient, 'post')
+    def test_create_external_link_with_optional_fields(self, mock_post):
+        mock_post.return_value = make_response(200)  # requests follows the 302 by default
+
+        self.client.create_external_link(
+            '999', 'github', 'https://github.com/org/repo',
+            title='Repo', description='<div>Main repo</div>',
+        )
+
+        _, data = mock_post.call_args[0]
+        self.assertEqual(data['door']['title'], 'Repo')
+        self.assertEqual(data['door']['description'], '<div>Main repo</div>')
+
+    @patch.object(BasecampClient, 'put')
+    def test_rename_external_link(self, mock_put):
+        mock_put.return_value = make_response(200, {"id": 1, "title": "New name"})
+
+        result = self.client.rename_external_link('1', 'New name')
+
+        self.assertEqual(result, {"id": 1, "title": "New name"})
+        mock_put.assert_called_once_with('dock/tools/1.json', {'title': 'New name'})
+
+    @patch.object(BasecampClient, 'delete')
+    def test_trash_external_link(self, mock_delete):
+        mock_delete.return_value = make_response(204)
+
+        result = self.client.trash_external_link('1')
+
+        self.assertTrue(result)
+        mock_delete.assert_called_once_with('dock/tools/1.json')
+
+
 class TestComments(unittest.TestCase):
     def setUp(self):
         self.client = make_client()

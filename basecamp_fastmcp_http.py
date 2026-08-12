@@ -2482,6 +2482,159 @@ async def delete_webhook(project_id: str, webhook_id: str) -> Dict[str, Any]:
             "message": str(e)
         }
 
+
+# External Link Tools
+@mcp.tool()
+async def get_external_links(project_id: Optional[str] = None, status: Optional[str] = None) -> Dict[str, Any]:
+    """List external links (dock tools pointing to outside services like Figma, GitHub, Dropbox).
+
+    Args:
+        project_id: Optional project ID to scope to. Omit to list across all visible projects.
+        status: Optional filter -- 'active', 'archived', or 'trashed'
+    """
+    client = await _get_basecamp_client()
+    if not client:
+        return _get_auth_error_response()
+
+    try:
+        links = await _run_sync(client.get_external_links, project_id, status)
+        return {
+            "status": "success",
+            "external_links": links,
+            "count": len(links)
+        }
+    except Exception as e:
+        logger.error(f"Error getting external links: {e}")
+        if "401" in str(e) and "expired" in str(e).lower():
+            return {
+                "error": "OAuth token expired",
+                "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."
+            }
+        return {
+            "error": "Execution error",
+            "message": str(e)
+        }
+
+
+@mcp.tool()
+async def get_external_link(link_id: str) -> Dict[str, Any]:
+    """Get a single external link by ID. Note: omits service/description and its url
+    is a Basecamp redirector, not the outside address -- use get_external_links for the full shape.
+
+    Args:
+        link_id: The external link ID
+    """
+    client = await _get_basecamp_client()
+    if not client:
+        return _get_auth_error_response()
+
+    try:
+        link = await _run_sync(client.get_external_link, link_id)
+        return {
+            "status": "success",
+            "external_link": link
+        }
+    except Exception as e:
+        logger.error(f"Error getting external link: {e}")
+        if "401" in str(e) and "expired" in str(e).lower():
+            return {
+                "error": "OAuth token expired",
+                "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."
+            }
+        return {
+            "error": "Execution error",
+            "message": str(e)
+        }
+
+
+@mcp.tool()
+async def create_external_link(project_id: str, service: str, url: str, title: Optional[str] = None, description: Optional[str] = None) -> Dict[str, Any]:
+    """Create an external link (dock tool) pointing to an outside service.
+
+    Args:
+        project_id: The project ID
+        service: Short service identifier -- e.g. figma, dropbox, google_drive, github, notion, trello, slack, zoom, or other
+        url: HTTP/HTTPS address the link points to
+        title: Optional display name (defaults to "Untitled")
+        description: Optional rich-text (HTML) description
+    """
+    client = await _get_basecamp_client()
+    if not client:
+        return _get_auth_error_response()
+
+    try:
+        await _run_sync(client.create_external_link, project_id, service, url, title, description)
+        return {
+            "status": "success",
+            "message": "External link created. Call get_external_links to find its ID -- Basecamp does not return it on creation."
+        }
+    except Exception as e:
+        logger.error(f"Error creating external link: {e}")
+        if "401" in str(e) and "expired" in str(e).lower():
+            return {
+                "error": "OAuth token expired",
+                "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."
+            }
+        return {
+            "error": "Execution error",
+            "message": str(e)
+        }
+
+
+@mcp.tool()
+async def rename_external_link(link_id: str, title: str) -> Dict[str, Any]:
+    """Rename an external link. Only the title can be changed this way --
+    to change the URL, service, or description, trash this link and create a new one.
+
+    Args:
+        link_id: The external link ID
+        title: New display name
+    """
+    client = await _get_basecamp_client()
+    if not client:
+        return _get_auth_error_response()
+
+    try:
+        link = await _run_sync(client.rename_external_link, link_id, title)
+        return {
+            "status": "success",
+            "external_link": link,
+            "message": "External link renamed successfully"
+        }
+    except Exception as e:
+        logger.error(f"Error renaming external link: {e}")
+        if "401" in str(e) and "expired" in str(e).lower():
+            return {
+                "error": "OAuth token expired",
+                "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."
+            }
+        return {
+            "error": "Execution error",
+            "message": str(e)
+        }
+
+
+@mcp.tool()
+async def trash_external_link(link_id: str) -> Dict[str, Any]:
+    """Move an external link to the trash.
+
+    Args:
+        link_id: The external link ID
+    """
+    client = await _get_basecamp_client()
+    if not client:
+        return _get_auth_error_response()
+
+    try:
+        await _run_sync(client.trash_external_link, link_id)
+        return {"status": "success", "message": f"External link {link_id} moved to trash"}
+    except Exception as e:
+        logger.error(f"Error trashing external link {link_id}: {e}")
+        if "401" in str(e) and "expired" in str(e).lower():
+            return {"error": "OAuth token expired", "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."}
+        return {"error": "Execution error", "message": str(e)}
+
+
 # Document Management
 @mcp.tool()
 async def get_documents(project_id: str, vault_id: str) -> Dict[str, Any]:

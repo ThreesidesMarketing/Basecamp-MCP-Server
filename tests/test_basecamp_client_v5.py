@@ -110,6 +110,19 @@ class TestSchedule(unittest.TestCase):
 
         self.assertIn('No schedule found', str(ctx.exception))
 
+    @patch.object(BasecampClient, 'get')
+    def test_get_schedule_entries_uses_schedule_id(self, mock_get):
+        project_response = make_response(200, {"dock": [{"name": "schedule", "id": 444}]})
+        schedule_response = make_response(200, {"id": 444, "title": "Calendar"})
+        entries_response = make_response(200, [{"id": 1, "summary": "Team Meeting"}])
+        mock_get.side_effect = [project_response, schedule_response, entries_response]
+
+        result = self.client.get_schedule_entries('999')
+
+        self.assertEqual(result, [{"id": 1, "summary": "Team Meeting"}])
+        third_call_endpoint = mock_get.call_args_list[2][0][0]
+        self.assertEqual(third_call_endpoint, 'buckets/999/schedules/444/entries.json')
+
 
 class TestComments(unittest.TestCase):
     def setUp(self):

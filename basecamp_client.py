@@ -1462,18 +1462,14 @@ class BasecampClient:
         Returns:
             list: Schedule entries
         """
-        try:
-            endpoint = f"buckets/{project_id}/schedules.json"
-            schedule = self.get(endpoint)
-
-            if isinstance(schedule, list) and len(schedule) > 0:
-                schedule_id = schedule[0]['id']
-                entries_endpoint = f"buckets/{project_id}/schedules/{schedule_id}/entries.json"
-                return self.get(entries_endpoint)
-            else:
-                return []
-        except Exception as e:
-            raise Exception(f"Failed to get schedule: {str(e)}")
+        schedule = self.get_schedule(project_id)
+        schedule_id = schedule['id']
+        endpoint = f"buckets/{project_id}/schedules/{schedule_id}/entries.json"
+        response = self.get(endpoint)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise Exception(f"Failed to get schedule entries: {response.status_code} - {response.text}")
 
     # Comments methods
     def get_comments(self, project_id, recording_id, page=1):

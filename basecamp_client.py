@@ -76,10 +76,10 @@ class BasecampClient:
         url = f"{self.base_url}/{endpoint}"
         return requests.get(url, auth=self.auth, headers=self.headers, params=params)
 
-    def post(self, endpoint, data=None):
+    def post(self, endpoint, data=None, allow_redirects=True):
         """Make a POST request to the Basecamp API."""
         url = f"{self.base_url}/{endpoint}"
-        return requests.post(url, auth=self.auth, headers=self.headers, json=data)
+        return requests.post(url, auth=self.auth, headers=self.headers, json=data, allow_redirects=allow_redirects)
 
     def put(self, endpoint, data=None):
         """Make a PUT request to the Basecamp API."""
@@ -2061,6 +2061,11 @@ class BasecampClient:
         This is the only endpoint that returns an external link's full
         shape (url, service, description) -- get_external_link() omits them.
 
+        `projects/recordings.json` is paginated (commonly 15 items per
+        page); this follows pagination via the `page` query parameter
+        and the HTTP `Link` header, aggregating all pages before
+        returning the combined list.
+
         Args:
             project_id: Optional project/bucket ID to scope to. Omit to
                 list external links across every active project visible
@@ -2076,11 +2081,29 @@ class BasecampClient:
             params['bucket'] = project_id
         if status:
             params['status'] = status
-        response = self.get('projects/recordings.json', params=params)
-        if response.status_code == 200:
-            return response.json()
-        else:
-            raise Exception(f"Failed to get external links: {response.status_code} - {response.text}")
+
+        all_links = []
+        page = 1
+
+        while True:
+            page_params = dict(params)
+            page_params['page'] = page
+            response = self.get('projects/recordings.json', params=page_params)
+            if response.status_code != 200:
+                raise Exception(f"Failed to get external links: {response.status_code} - {response.text}")
+
+            page_items = response.json() or []
+            all_links.extend(page_items)
+
+            link_header = response.headers.get("Link", "")
+            has_next = 'rel="next"' in link_header if link_header else False
+
+            if not page_items or not has_next:
+                break
+
+            page += 1
+
+        return all_links
 
     def get_external_link(self, link_id):
         """
@@ -2120,7 +2143,12 @@ class BasecampClient:
 
         Note: Basecamp returns a bodyless 302 on success with no ID --
         call get_external_links(project_id) afterward to find the new
-        link.
+        link. The redirect target is a different host
+        (3.basecamp.com vs the API host 3.basecampapi.com), and
+        `requests` strips the Authorization header when following a
+        cross-host redirect -- so this call disables redirect-following
+        to see the raw 302 (the actual success signal) instead of the
+        followed response, which would often come back unauthenticated.
         """
         door = {'service': service, 'url': url}
         if title is not None:
@@ -2128,7 +2156,7 @@ class BasecampClient:
         if description is not None:
             door['description'] = description
         endpoint = f'buckets/{project_id}/dock/doors.json'
-        response = self.post(endpoint, {'door': door})
+        response = self.post(endpoint, {'door': door}, allow_redirects=False)
         if response.status_code in (200, 302):
             return True
         else:

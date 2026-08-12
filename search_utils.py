@@ -570,7 +570,23 @@ class BasecampSearch:
             return []
 
     def search_all_campfire_lines(self, query=None):
-        """Search campfire chat lines across all projects."""
+        """Search campfire chat lines across all projects.
+
+        Cost note: for every visible project, this fetches that
+        project's campfire and one page of chat lines (get_campfire_lines
+        does not paginate further -- it returns a single page at
+        Basecamp's default page size). Cost therefore scales with the
+        number of visible projects, not with the total number of chat
+        lines.
+
+        History note: this method previously called an underlying
+        client method (get_campfires) that hit a URL that didn't exist
+        in the Basecamp API, so every per-project fetch raised and was
+        swallowed by the try/except below -- meaning this method always
+        returned an empty (or query-filtered-empty) result in
+        production. That underlying bug is now fixed (see get_campfire),
+        so this method does real work.
+        """
         all_lines = []
 
         try:
@@ -654,7 +670,12 @@ class BasecampSearch:
             return []
 
     def global_search(self, query=None):
-        """Search projects, todos, campfire lines, and uploads at once."""
+        """Search projects, todos, campfire lines, and uploads at once.
+
+        campfire_lines: now returns real results aggregated across every
+        visible project (one page of chat lines per project) -- see
+        search_all_campfire_lines for cost and history notes.
+        """
         return {
             "projects": self.search_projects(query),
             "todos": self.search_todos(query),

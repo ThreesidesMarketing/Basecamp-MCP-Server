@@ -138,7 +138,7 @@ class TestExternalLinks(unittest.TestCase):
         endpoint = mock_get.call_args[0][0]
         params = mock_get.call_args[1]['params']
         self.assertEqual(endpoint, 'projects/recordings.json')
-        self.assertEqual(params, {'type': 'Door', 'bucket': '999'})
+        self.assertEqual(params, {'type': 'Door', 'bucket': '999', 'page': 1})
 
     @patch.object(BasecampClient, 'get')
     def test_get_external_links_unscoped(self, mock_get):
@@ -147,7 +147,38 @@ class TestExternalLinks(unittest.TestCase):
         self.client.get_external_links()
 
         params = mock_get.call_args[1]['params']
-        self.assertEqual(params, {'type': 'Door'})
+        self.assertEqual(params, {'type': 'Door', 'page': 1})
+
+    @patch.object(BasecampClient, 'get')
+    def test_get_external_links_paginates(self, mock_get):
+        page_one = make_response(
+            200,
+            [{"id": 1, "title": "Design system"}],
+            headers={"Link": '<https://3.basecampapi.com/12345/projects/recordings.json?page=2>; rel="next"'},
+        )
+        page_two = make_response(200, [{"id": 2, "title": "Runbook"}])
+        mock_get.side_effect = [page_one, page_two]
+
+        result = self.client.get_external_links(project_id='999')
+
+        self.assertEqual(result, [
+            {"id": 1, "title": "Design system"},
+            {"id": 2, "title": "Runbook"},
+        ])
+        self.assertEqual(mock_get.call_count, 2)
+        first_params = mock_get.call_args_list[0][1]['params']
+        second_params = mock_get.call_args_list[1][1]['params']
+        self.assertEqual(first_params, {'type': 'Door', 'bucket': '999', 'page': 1})
+        self.assertEqual(second_params, {'type': 'Door', 'bucket': '999', 'page': 2})
+
+    @patch.object(BasecampClient, 'get')
+    def test_get_external_links_raises_on_failure(self, mock_get):
+        mock_get.return_value = make_response(500, "Server Error")
+
+        with self.assertRaises(Exception) as ctx:
+            self.client.get_external_links(project_id='999')
+
+        self.assertIn("Failed to get external links", str(ctx.exception))
 
     @patch.object(BasecampClient, 'get')
     def test_get_external_link(self, mock_get):
@@ -158,6 +189,15 @@ class TestExternalLinks(unittest.TestCase):
         self.assertEqual(result, {"id": 1, "title": "Design system"})
         mock_get.assert_called_once_with('dock/tools/1.json')
 
+    @patch.object(BasecampClient, 'get')
+    def test_get_external_link_raises_on_failure(self, mock_get):
+        mock_get.return_value = make_response(404, "Not Found")
+
+        with self.assertRaises(Exception) as ctx:
+            self.client.get_external_link('1')
+
+        self.assertIn("Failed to get external link", str(ctx.exception))
+
     @patch.object(BasecampClient, 'post')
     def test_create_external_link_required_fields_only(self, mock_post):
         mock_post.return_value = make_response(302)
@@ -166,12 +206,17 @@ class TestExternalLinks(unittest.TestCase):
 
         self.assertTrue(result)
         endpoint, data = mock_post.call_args[0]
+        kwargs = mock_post.call_args[1]
         self.assertEqual(endpoint, 'buckets/999/dock/doors.json')
         self.assertEqual(data, {'door': {'service': 'figma', 'url': 'https://figma.com/file/abc'}})
+        self.assertEqual(kwargs.get('allow_redirects'), False)
 
     @patch.object(BasecampClient, 'post')
     def test_create_external_link_with_optional_fields(self, mock_post):
-        mock_post.return_value = make_response(200)  # requests follows the 302 by default
+        # The raw response to a successful create is a bodyless 302 --
+        # allow_redirects=False means this is what create_external_link
+        # actually sees (redirect-following is disabled for this call).
+        mock_post.return_value = make_response(302)
 
         self.client.create_external_link(
             '999', 'github', 'https://github.com/org/repo',
@@ -181,6 +226,18 @@ class TestExternalLinks(unittest.TestCase):
         _, data = mock_post.call_args[0]
         self.assertEqual(data['door']['title'], 'Repo')
         self.assertEqual(data['door']['description'], '<div>Main repo</div>')
+        self.assertEqual(mock_post.call_args[1].get('allow_redirects'), False)
+
+    @patch.object(BasecampClient, 'post')
+    def test_create_external_link_raises_on_failure(self, mock_post):
+        # A raw, non-followed response that is neither 200 nor 302 means
+        # the create genuinely failed (or came back unauthenticated).
+        mock_post.return_value = make_response(401, "Unauthorized")
+
+        with self.assertRaises(Exception) as ctx:
+            self.client.create_external_link('999', 'figma', 'https://figma.com/file/abc')
+
+        self.assertIn("Failed to create external link", str(ctx.exception))
 
     @patch.object(BasecampClient, 'put')
     def test_rename_external_link(self, mock_put):
@@ -191,6 +248,15 @@ class TestExternalLinks(unittest.TestCase):
         self.assertEqual(result, {"id": 1, "title": "New name"})
         mock_put.assert_called_once_with('dock/tools/1.json', {'title': 'New name'})
 
+    @patch.object(BasecampClient, 'put')
+    def test_rename_external_link_raises_on_failure(self, mock_put):
+        mock_put.return_value = make_response(422, "Unprocessable")
+
+        with self.assertRaises(Exception) as ctx:
+            self.client.rename_external_link('1', 'New name')
+
+        self.assertIn("Failed to rename external link", str(ctx.exception))
+
     @patch.object(BasecampClient, 'delete')
     def test_trash_external_link(self, mock_delete):
         mock_delete.return_value = make_response(204)
@@ -199,6 +265,15 @@ class TestExternalLinks(unittest.TestCase):
 
         self.assertTrue(result)
         mock_delete.assert_called_once_with('dock/tools/1.json')
+
+    @patch.object(BasecampClient, 'delete')
+    def test_trash_external_link_raises_on_failure(self, mock_delete):
+        mock_delete.return_value = make_response(404, "Not Found")
+
+        with self.assertRaises(Exception) as ctx:
+            self.client.trash_external_link('1')
+
+        self.assertIn("Failed to trash external link", str(ctx.exception))
 
 
 class TestComments(unittest.TestCase):
@@ -231,6 +306,15 @@ class TestComments(unittest.TestCase):
 
         self.assertTrue(result)
         mock_put.assert_called_once_with('recordings/2/status/trashed.json')
+
+    @patch.object(BasecampClient, 'put')
+    def test_trash_comment_raises_on_failure(self, mock_put):
+        mock_put.return_value = make_response(404, "Not Found")
+
+        with self.assertRaises(Exception) as ctx:
+            self.client.trash_comment('999', '2')
+
+        self.assertIn("Failed to trash comment", str(ctx.exception))
 
 
 class TestMessages(unittest.TestCase):

@@ -83,6 +83,34 @@ class TestCampfire(unittest.TestCase):
         self.assertIn('No campfire found', str(ctx.exception))
 
 
+class TestSchedule(unittest.TestCase):
+    def setUp(self):
+        self.client = make_client()
+
+    @patch.object(BasecampClient, 'get')
+    def test_get_schedule_discovers_via_dock(self, mock_get):
+        project_response = make_response(200, {
+            "dock": [{"name": "schedule", "id": 444}]
+        })
+        schedule_response = make_response(200, {"id": 444, "title": "Calendar", "entries_count": 3})
+        mock_get.side_effect = [project_response, schedule_response]
+
+        result = self.client.get_schedule('999')
+
+        self.assertEqual(result, {"id": 444, "title": "Calendar", "entries_count": 3})
+        second_call_endpoint = mock_get.call_args_list[1][0][0]
+        self.assertEqual(second_call_endpoint, 'buckets/999/schedules/444.json')
+
+    @patch.object(BasecampClient, 'get')
+    def test_get_schedule_raises_when_no_schedule_in_dock(self, mock_get):
+        mock_get.return_value = make_response(200, {"dock": [{"name": "chat", "id": 1}]})
+
+        with self.assertRaises(Exception) as ctx:
+            self.client.get_schedule('999')
+
+        self.assertIn('No schedule found', str(ctx.exception))
+
+
 class TestComments(unittest.TestCase):
     def setUp(self):
         self.client = make_client()

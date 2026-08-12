@@ -2333,6 +2333,35 @@ async def get_events(project_id: str, recording_id: str) -> Dict[str, Any]:
         }
 
 @mcp.tool()
+async def get_schedule(project_id: str) -> Dict[str, Any]:
+    """Get the schedule for a project.
+
+    Args:
+        project_id: The project ID
+    """
+    client = await _get_basecamp_client()
+    if not client:
+        return _get_auth_error_response()
+
+    try:
+        schedule = await _run_sync(client.get_schedule, project_id)
+        return {
+            "status": "success",
+            "schedule": schedule
+        }
+    except Exception as e:
+        logger.error(f"Error getting schedule: {e}")
+        if "401" in str(e) and "expired" in str(e).lower():
+            return {
+                "error": "OAuth token expired",
+                "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."
+            }
+        return {
+            "error": "Execution error",
+            "message": str(e)
+        }
+
+@mcp.tool()
 async def get_webhooks(project_id: str) -> Dict[str, Any]:
     """List webhooks for a project.
     

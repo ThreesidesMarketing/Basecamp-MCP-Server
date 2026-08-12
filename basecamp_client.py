@@ -1429,12 +1429,28 @@ class BasecampClient:
 
     # Schedule methods
     def get_schedule(self, project_id):
-        """Get the schedule for a project."""
-        response = self.get(f'projects/{project_id}/schedule.json')
-        if response.status_code == 200:
-            return response.json()
-        else:
-            raise Exception(f"Failed to get schedule: {response.status_code} - {response.text}")
+        """Get the schedule for a project.
+
+        The schedule ID is discovered from the project's dock array,
+        following the same pattern as get_message_board().
+
+        Args:
+            project_id: Project/bucket ID
+
+        Returns:
+            dict: Schedule details including id, title, entries_count, etc.
+        """
+        project = self.get_project(project_id)
+        try:
+            dock_item = next(_ for _ in project["dock"] if _["name"] == "schedule")
+            schedule_id = dock_item['id']
+            response = self.get(f'buckets/{project_id}/schedules/{schedule_id}.json')
+            if response.status_code == 200:
+                return response.json()
+            else:
+                raise Exception(f"Failed to get schedule: {response.status_code} - {response.text}")
+        except (IndexError, TypeError, StopIteration):
+            raise Exception(f"No schedule found for project: {project_id}")
 
     def get_schedule_entries(self, project_id):
         """

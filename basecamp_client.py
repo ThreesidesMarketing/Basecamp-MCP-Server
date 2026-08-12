@@ -2072,6 +2072,53 @@ class BasecampClient:
 
         return all_children
 
+    def create_vault(self, project_id, title, vault_id=None):
+        """Create a child vault nested under a vault.
+
+        If vault_id is not provided, the new vault is created directly
+        under the project's root vault.
+
+        Args:
+            project_id (str): The project ID
+            title (str): Name of the new vault
+            vault_id (str, optional): Parent vault ID to nest the new
+                vault under. If omitted, the project's root vault is used.
+
+        Returns:
+            dict: The created vault
+        """
+        if not vault_id:
+            vault_id = self.get_vault(project_id)['id']
+
+        endpoint = f"vaults/{vault_id}/vaults.json"
+        data = {"title": title}
+        response = self.post(endpoint, data)
+        if response.status_code == 201:
+            return response.json()
+        else:
+            raise Exception(f"Failed to create vault: {response.status_code} - {response.text}")
+
+    def update_vault(self, project_id, vault_id, title):
+        """Rename a vault.
+
+        Args:
+            project_id (str): The project ID. Kept for interface
+                consistency with the rest of the codebase; the flat
+                route scopes by vault_id alone.
+            vault_id (str): Vault ID to rename
+            title (str): New title for the vault
+
+        Returns:
+            dict: The updated vault
+        """
+        endpoint = f"vaults/{vault_id}.json"
+        data = {"title": title}
+        response = self.put(endpoint, data)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise Exception(f"Failed to update vault: {response.status_code} - {response.text}")
+
     # Search methods
     def get_search_metadata(self):
         """Get valid filter options for search (type_names[] and file_type values).

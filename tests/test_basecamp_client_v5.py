@@ -383,6 +383,55 @@ class TestVaults(unittest.TestCase):
 
         self.assertIn("Failed to get vault children", str(ctx.exception))
 
+    @patch.object(BasecampClient, 'get')
+    @patch.object(BasecampClient, 'post')
+    def test_create_vault_uses_root_vault_when_not_given(self, mock_post, mock_get):
+        project_response = make_response(200, {"dock": [{"name": "vault", "id": 777}]})
+        vault_response = make_response(200, {"id": 777, "title": "Docs & Files"})
+        mock_get.side_effect = [project_response, vault_response]
+        mock_post.return_value = make_response(201, {"id": 5, "title": "Materials"})
+
+        result = self.client.create_vault('999', 'Materials')
+
+        self.assertEqual(result, {"id": 5, "title": "Materials"})
+        mock_post.assert_called_once_with('vaults/777/vaults.json', {'title': 'Materials'})
+
+    @patch.object(BasecampClient, 'post')
+    def test_create_vault_with_explicit_parent_id(self, mock_post):
+        mock_post.return_value = make_response(201, {"id": 5, "title": "Materials"})
+
+        result = self.client.create_vault('999', 'Materials', '42')
+
+        self.assertEqual(result, {"id": 5, "title": "Materials"})
+        mock_post.assert_called_once_with('vaults/42/vaults.json', {'title': 'Materials'})
+
+    @patch.object(BasecampClient, 'post')
+    def test_create_vault_raises_on_failure(self, mock_post):
+        mock_post.return_value = make_response(422, "Unprocessable")
+
+        with self.assertRaises(Exception) as ctx:
+            self.client.create_vault('999', 'Materials', '42')
+
+        self.assertIn("Failed to create vault", str(ctx.exception))
+
+    @patch.object(BasecampClient, 'put')
+    def test_update_vault(self, mock_put):
+        mock_put.return_value = make_response(200, {"id": 42, "title": "Important Materials"})
+
+        result = self.client.update_vault('999', '42', 'Important Materials')
+
+        self.assertEqual(result, {"id": 42, "title": "Important Materials"})
+        mock_put.assert_called_once_with('vaults/42.json', {'title': 'Important Materials'})
+
+    @patch.object(BasecampClient, 'put')
+    def test_update_vault_raises_on_failure(self, mock_put):
+        mock_put.return_value = make_response(404, "Not Found")
+
+        with self.assertRaises(Exception) as ctx:
+            self.client.update_vault('999', '42', 'Important Materials')
+
+        self.assertIn("Failed to update vault", str(ctx.exception))
+
 
 class TestComments(unittest.TestCase):
     def setUp(self):

@@ -2697,6 +2697,68 @@ async def get_vault_children(project_id: str, vault_id: str = "") -> Dict[str, A
             "message": str(e)
         }
 
+@mcp.tool()
+async def create_vault(project_id: str, title: str, vault_id: str = "") -> Dict[str, Any]:
+    """Create a child vault. Nests under the project's root vault if vault_id is omitted.
+
+    Args:
+        project_id: Project ID
+        title: Name of the new vault
+        vault_id: Optional parent vault ID. If omitted, nests the new vault under the project's root vault.
+    """
+    client = await _get_basecamp_client()
+    if not client:
+        return _get_auth_error_response()
+
+    try:
+        vault = await _run_sync(client.create_vault, project_id, title, vault_id if vault_id else None)
+        return {
+            "status": "success",
+            "vault": vault
+        }
+    except Exception as e:
+        logger.error(f"Error creating vault: {e}")
+        if "401" in str(e) and "expired" in str(e).lower():
+            return {
+                "error": "OAuth token expired",
+                "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."
+            }
+        return {
+            "error": "Execution error",
+            "message": str(e)
+        }
+
+@mcp.tool()
+async def update_vault(project_id: str, vault_id: str, title: str) -> Dict[str, Any]:
+    """Rename a vault.
+
+    Args:
+        project_id: Project ID
+        vault_id: Vault ID to rename
+        title: New title for the vault
+    """
+    client = await _get_basecamp_client()
+    if not client:
+        return _get_auth_error_response()
+
+    try:
+        vault = await _run_sync(client.update_vault, project_id, vault_id, title)
+        return {
+            "status": "success",
+            "vault": vault
+        }
+    except Exception as e:
+        logger.error(f"Error updating vault: {e}")
+        if "401" in str(e) and "expired" in str(e).lower():
+            return {
+                "error": "OAuth token expired",
+                "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."
+            }
+        return {
+            "error": "Execution error",
+            "message": str(e)
+        }
+
 # Document Management
 @mcp.tool()
 async def get_documents(project_id: str, vault_id: str) -> Dict[str, Any]:

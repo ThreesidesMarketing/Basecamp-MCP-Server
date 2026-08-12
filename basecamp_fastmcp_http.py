@@ -763,6 +763,92 @@ async def create_comment(recording_id: str, project_id: str, content: str) -> Di
             "message": str(e)
         }
 
+
+@mcp.tool()
+async def get_comment(project_id: str, comment_id: str) -> Dict[str, Any]:
+    """Get a specific comment by ID.
+
+    Args:
+        project_id: The project ID
+        comment_id: The comment ID
+    """
+    client = await _get_basecamp_client()
+    if not client:
+        return _get_auth_error_response()
+
+    try:
+        comment = await _run_sync(client.get_comment, project_id, comment_id)
+        return {
+            "status": "success",
+            "comment": comment
+        }
+    except Exception as e:
+        logger.error(f"Error getting comment: {e}")
+        if "401" in str(e) and "expired" in str(e).lower():
+            return {
+                "error": "OAuth token expired",
+                "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."
+            }
+        return {
+            "error": "Execution error",
+            "message": str(e)
+        }
+
+
+@mcp.tool()
+async def update_comment(project_id: str, comment_id: str, content: str) -> Dict[str, Any]:
+    """Update the content of an existing comment.
+
+    Args:
+        project_id: The project ID
+        comment_id: The comment ID
+        content: New comment content in HTML format
+    """
+    client = await _get_basecamp_client()
+    if not client:
+        return _get_auth_error_response()
+
+    try:
+        comment = await _run_sync(client.update_comment, project_id, comment_id, content)
+        return {
+            "status": "success",
+            "comment": comment,
+            "message": "Comment updated successfully"
+        }
+    except Exception as e:
+        logger.error(f"Error updating comment: {e}")
+        if "401" in str(e) and "expired" in str(e).lower():
+            return {
+                "error": "OAuth token expired",
+                "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."
+            }
+        return {
+            "error": "Execution error",
+            "message": str(e)
+        }
+
+
+@mcp.tool()
+async def trash_comment(project_id: str, comment_id: str) -> Dict[str, Any]:
+    """Move a comment to the trash.
+
+    Args:
+        project_id: The project ID
+        comment_id: The comment ID
+    """
+    client = await _get_basecamp_client()
+    if not client:
+        return _get_auth_error_response()
+
+    try:
+        await _run_sync(client.trash_comment, project_id, comment_id)
+        return {"status": "success", "message": f"Comment {comment_id} moved to trash"}
+    except Exception as e:
+        logger.error(f"Error trashing comment {comment_id}: {e}")
+        if "401" in str(e) and "expired" in str(e).lower():
+            return {"error": "OAuth token expired", "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."}
+        return {"error": "Execution error", "message": str(e)}
+
 @mcp.tool()
 async def get_campfire_lines(project_id: str, campfire_id: str) -> Dict[str, Any]:
     """Get recent messages from a Basecamp campfire (chat room).

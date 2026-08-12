@@ -55,6 +55,38 @@ class TestMessageBoards(unittest.TestCase):
         self.assertEqual(second_call_endpoint, 'message_boards/555.json')
 
 
+class TestComments(unittest.TestCase):
+    def setUp(self):
+        self.client = make_client()
+
+    @patch.object(BasecampClient, 'get')
+    def test_get_comment_uses_flat_route(self, mock_get):
+        mock_get.return_value = make_response(200, {"id": 2, "content": "Hi"})
+
+        result = self.client.get_comment('999', '2')
+
+        self.assertEqual(result, {"id": 2, "content": "Hi"})
+        mock_get.assert_called_once_with('comments/2.json')
+
+    @patch.object(BasecampClient, 'put')
+    def test_update_comment_uses_flat_route(self, mock_put):
+        mock_put.return_value = make_response(200, {"id": 2, "content": "Updated"})
+
+        result = self.client.update_comment('999', '2', 'Updated')
+
+        self.assertEqual(result, {"id": 2, "content": "Updated"})
+        mock_put.assert_called_once_with('comments/2.json', {'content': 'Updated'})
+
+    @patch.object(BasecampClient, 'put')
+    def test_trash_comment_uses_recording_status_route(self, mock_put):
+        mock_put.return_value = make_response(204)
+
+        result = self.client.trash_comment('999', '2')
+
+        self.assertTrue(result)
+        mock_put.assert_called_once_with('recordings/2/status/trashed.json')
+
+
 class TestMessages(unittest.TestCase):
     def setUp(self):
         self.client = make_client()

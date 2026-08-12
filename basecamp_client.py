@@ -1509,37 +1509,39 @@ class BasecampClient:
         else:
             raise Exception(f"Failed to create comment: {response.status_code} - {response.text}")
 
-    def get_comment(self, comment_id, bucket_id):
+    def get_comment(self, project_id, comment_id):
         """
         Get a specific comment.
 
         Args:
+            project_id: The project ID. Kept for interface consistency; the
+                flat route scopes by the comment's own ID alone.
             comment_id (int): Comment ID
-            bucket_id (int): Project/bucket ID
 
         Returns:
             dict: Comment details
         """
-        endpoint = f"buckets/{bucket_id}/comments/{comment_id}.json"
+        endpoint = f"comments/{comment_id}.json"
         response = self.get(endpoint)
         if response.status_code == 200:
             return response.json()
         else:
             raise Exception(f"Failed to get comment: {response.status_code} - {response.text}")
 
-    def update_comment(self, comment_id, bucket_id, content):
+    def update_comment(self, project_id, comment_id, content):
         """
         Update a comment.
 
         Args:
+            project_id: The project ID. Kept for interface consistency; the
+                flat route scopes by the comment's own ID alone.
             comment_id (int): Comment ID
-            bucket_id (int): Project/bucket ID
             content (str): New content for the comment in HTML format
 
         Returns:
             dict: Updated comment
         """
-        endpoint = f"buckets/{bucket_id}/comments/{comment_id}.json"
+        endpoint = f"comments/{comment_id}.json"
         data = {"content": content}
         response = self.put(endpoint, data)
         if response.status_code == 200:
@@ -1547,23 +1549,24 @@ class BasecampClient:
         else:
             raise Exception(f"Failed to update comment: {response.status_code} - {response.text}")
 
-    def delete_comment(self, comment_id, bucket_id):
+    def trash_comment(self, project_id, comment_id):
         """
-        Delete a comment.
+        Trash a comment via the generic recording-status endpoint.
 
         Args:
+            project_id: The project ID. Kept for interface consistency; the
+                flat route scopes by the comment's own ID alone.
             comment_id (int): Comment ID
-            bucket_id (int): Project/bucket ID
 
         Returns:
             bool: True if successful
         """
-        endpoint = f"buckets/{bucket_id}/comments/{comment_id}.json"
-        response = self.delete(endpoint)
+        endpoint = f"recordings/{comment_id}/status/trashed.json"
+        response = self.put(endpoint)
         if response.status_code == 204:
             return True
         else:
-            raise Exception(f"Failed to delete comment: {response.status_code} - {response.text}")
+            raise Exception(f"Failed to trash comment: {response.status_code} - {response.text}")
 
     def get_daily_check_ins(self, project_id, page=1):
         project = self.get_project(project_id)

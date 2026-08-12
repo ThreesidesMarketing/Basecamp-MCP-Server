@@ -2635,6 +2635,38 @@ async def trash_external_link(link_id: str) -> Dict[str, Any]:
         return {"error": "Execution error", "message": str(e)}
 
 
+# Vault Management
+@mcp.tool()
+async def get_vault(project_id: str, vault_id: str = "") -> Dict[str, Any]:
+    """Get a vault. Returns the project's root vault if vault_id is omitted.
+
+    Args:
+        project_id: Project ID
+        vault_id: Optional vault ID. If omitted, returns the project's root vault.
+    """
+    client = await _get_basecamp_client()
+    if not client:
+        return _get_auth_error_response()
+
+    try:
+        vault = await _run_sync(client.get_vault, project_id, vault_id if vault_id else None)
+        return {
+            "status": "success",
+            "vault": vault
+        }
+    except Exception as e:
+        logger.error(f"Error getting vault: {e}")
+        if "401" in str(e) and "expired" in str(e).lower():
+            return {
+                "error": "OAuth token expired",
+                "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."
+            }
+        return {
+            "error": "Execution error",
+            "message": str(e)
+        }
+
+
 # Document Management
 @mcp.tool()
 async def get_documents(project_id: str, vault_id: str) -> Dict[str, Any]:

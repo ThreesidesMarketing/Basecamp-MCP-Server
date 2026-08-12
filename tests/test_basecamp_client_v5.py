@@ -276,6 +276,52 @@ class TestExternalLinks(unittest.TestCase):
         self.assertIn("Failed to trash external link", str(ctx.exception))
 
 
+class TestVaults(unittest.TestCase):
+    def setUp(self):
+        self.client = make_client()
+
+    @patch.object(BasecampClient, 'get')
+    def test_get_vault_discovers_root_via_dock(self, mock_get):
+        project_response = make_response(200, {
+            "dock": [{"name": "vault", "id": 777}]
+        })
+        vault_response = make_response(200, {"id": 777, "title": "Docs & Files"})
+        mock_get.side_effect = [project_response, vault_response]
+
+        result = self.client.get_vault('999')
+
+        self.assertEqual(result, {"id": 777, "title": "Docs & Files"})
+        second_call_endpoint = mock_get.call_args_list[1][0][0]
+        self.assertEqual(second_call_endpoint, 'vaults/777.json')
+
+    @patch.object(BasecampClient, 'get')
+    def test_get_vault_raises_when_no_vault_in_dock(self, mock_get):
+        mock_get.return_value = make_response(200, {"dock": []})
+
+        with self.assertRaises(Exception) as ctx:
+            self.client.get_vault('999')
+
+        self.assertIn("No vault found for project", str(ctx.exception))
+
+    @patch.object(BasecampClient, 'get')
+    def test_get_vault_with_explicit_id_skips_dock_lookup(self, mock_get):
+        mock_get.return_value = make_response(200, {"id": 42, "title": "Materials"})
+
+        result = self.client.get_vault('999', '42')
+
+        self.assertEqual(result, {"id": 42, "title": "Materials"})
+        mock_get.assert_called_once_with('vaults/42.json')
+
+    @patch.object(BasecampClient, 'get')
+    def test_get_vault_raises_on_failure(self, mock_get):
+        mock_get.return_value = make_response(404, "Not Found")
+
+        with self.assertRaises(Exception) as ctx:
+            self.client.get_vault('999', '42')
+
+        self.assertIn("Failed to get vault", str(ctx.exception))
+
+
 class TestComments(unittest.TestCase):
     def setUp(self):
         self.client = make_client()

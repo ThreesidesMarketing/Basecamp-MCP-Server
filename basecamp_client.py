@@ -1995,6 +1995,36 @@ class BasecampClient:
         else:
             raise Exception(f"Failed to get upload: {response.status_code} - {response.text}")
 
+    # Vault methods
+    def get_vault(self, project_id, vault_id=None):
+        """Get a vault.
+
+        If vault_id is not provided, returns the project's root vault,
+        discovered from the project's dock array (name == "vault"),
+        following the same pattern as get_todoset().
+
+        Args:
+            project_id (str): The project ID
+            vault_id (str, optional): Specific vault ID to retrieve. If
+                omitted, the project's root vault is returned.
+
+        Returns:
+            dict: The vault object
+        """
+        if not vault_id:
+            project = self.get_project(project_id)
+            try:
+                vault_id = next(_ for _ in project["dock"] if _["name"] == "vault")["id"]
+            except (IndexError, TypeError, StopIteration):
+                raise Exception(f"No vault found for project: {project_id}")
+
+        endpoint = f"vaults/{vault_id}.json"
+        response = self.get(endpoint)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise Exception(f"Failed to get vault: {response.status_code} - {response.text}")
+
     # Search methods
     def get_search_metadata(self):
         """Get valid filter options for search (type_names[] and file_type values).

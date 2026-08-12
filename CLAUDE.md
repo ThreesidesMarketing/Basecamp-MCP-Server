@@ -98,7 +98,7 @@ Basecamp 3 API (https://3.basecampapi.com/{account_id})
 
 Maps every doc in [basecamp/bc-api/sections](https://github.com/basecamp/bc-api/tree/master/sections) (the Basecamp 4 API reference) against `basecamp_fastmcp_http.py`'s tool set. **Full** = every documented endpoint has a tool. **Partial** = some endpoints covered, gap noted. **None** = zero tool coverage. **N/A** = conceptual doc, not a CRUD resource. Last audited 2026-08-12 (64 sections).
 
-**Summary: 20 Full · 10 Partial · 30 None · 3 N/A**
+**Summary: 20 Full · 11 Partial · 30 None · 3 N/A**
 
 ### Projects & account
 

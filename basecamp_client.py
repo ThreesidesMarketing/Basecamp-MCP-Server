@@ -2142,6 +2142,28 @@ class BasecampClient:
         else:
             raise Exception(f"Failed to update vault: {response.status_code} - {response.text}")
 
+    # Cloud file methods
+    def get_cloud_file(self, cloud_file_id):
+        """Get a cloud file (a link to a file hosted on Dropbox/Google Drive/Figma/etc.).
+
+        Basecamp's public API has no endpoint to list a vault's cloud
+        files, so the ID has to come from somewhere else - typically a
+        Basecamp app URL the user pastes in
+        (https://app.basecamp.com/{account}/buckets/{project}/cloud_files/{id}).
+
+        Args:
+            cloud_file_id (str): Cloud file ID
+
+        Returns:
+            dict: The cloud file object
+        """
+        endpoint = f"cloud_files/{cloud_file_id}.json"
+        response = self.get(endpoint)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise Exception(f"Failed to get cloud file: {response.status_code} - {response.text}")
+
     # Search methods
     def get_search_metadata(self):
         """Get valid filter options for search (type_names[] and file_type values).

@@ -88,7 +88,7 @@ Basecamp 3 API (https://3.basecampapi.com/{account_id})
 - **Campfire (Chat)**: `get_campfire_lines`, `get_campfire`
 - **Schedule**: `get_schedule`, `get_schedule_entries`
 - **External Links**: `get_external_links`, `get_external_link`, `create_external_link`, `rename_external_link`, `trash_external_link`
-- **Vaults**: `get_vault`, `get_vault_children`, `create_vault`, `update_vault`
+- **Vaults**: `get_vault`, `get_vault_children`, `create_vault`, `update_vault`, `get_cloud_file`
 - **Documents**: `get_documents`, `create_document`, `update_document`, `trash_document`
 - **Inbox (Email Forwards)**: `get_inbox`, `get_forwards`, `get_forward`, `get_inbox_replies`, `get_inbox_reply`, `trash_forward`
 - **Search**: `search_basecamp`, `get_search_metadata`, `global_search`, `search_projects`
@@ -99,7 +99,7 @@ Basecamp 3 API (https://3.basecampapi.com/{account_id})
 
 Maps every doc in [basecamp/bc-api/sections](https://github.com/basecamp/bc-api/tree/master/sections) (the Basecamp 4 API reference) against `basecamp_fastmcp_http.py`'s tool set. **Full** = every documented endpoint has a tool. **Partial** = some endpoints covered, gap noted. **None** = zero tool coverage. **N/A** = conceptual doc, not a CRUD resource. Last audited 2026-08-13 (64 sections).
 
-**Summary: 21 Full · 11 Partial · 29 None · 3 N/A**
+**Summary: 21 Full · 12 Partial · 28 None · 3 N/A**
 
 ### Projects & account
 
@@ -155,7 +155,7 @@ Maps every doc in [basecamp/bc-api/sections](https://github.com/basecamp/bc-api/
 | `uploads.md` | Partial | `get_uploads`, `get_upload` only; missing create, update, version list, replace-version, trash |
 | `vaults.md` | Full | `get_vault`, `get_vault_children`, `create_vault`, `update_vault` (no dedicated delete/trash endpoint is documented for vaults specifically; trashing would go via the generic recordings status route (see `recordings.md`), same mechanism as `trash_document`; `get_vault_children` returns Vault-type sub-folders only — an earlier version tried the vault's `children_url` route to also surface `CloudFile` children, but that route returns 204 with no body over the OAuth API (only works over Basecamp's session-authenticated web app), so `CloudFile` children have no working list endpoint in the public API) |
 | `google_documents.md` | None | No Google Docs/Sheets/Slides vault resource support |
-| `cloud_files.md` | None | No Google Drive/Dropbox/Box cloud file support |
+| `cloud_files.md` | Partial | `get_cloud_file` (takes a pasted Basecamp URL, since there's no list endpoint to discover an ID on its own); missing create, update, trash |
 | `attachments.md` | Full | `create_attachment` |
 
 ### People & personal

@@ -8,6 +8,7 @@ Anthropic FastMCP framework, replacing the custom JSON-RPC implementation.
 
 import logging
 import os
+import re
 import sys
 from typing import Any, Dict, List, Optional
 import anyio
@@ -2764,6 +2765,48 @@ async def update_vault(project_id: str, vault_id: str, title: str) -> Dict[str, 
         }
     except Exception as e:
         logger.error(f"Error updating vault: {e}")
+        if "401" in str(e) and "expired" in str(e).lower():
+            return {
+                "error": "OAuth token expired",
+                "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."
+            }
+        return {
+            "error": "Execution error",
+            "message": str(e)
+        }
+
+@mcp.tool()
+async def get_cloud_file(url: str) -> Dict[str, Any]:
+    """Get a cloud file (a link to a file on Dropbox/Google Drive/Figma/etc.) filed in a vault.
+
+    Basecamp's public API has no endpoint to list a vault's cloud files, so there's no way to
+    discover one's ID on your own - the user has to paste in the Basecamp URL for the item
+    (e.g. https://app.basecamp.com/{account}/buckets/{project}/cloud_files/{id}, copied from
+    the Basecamp web app or a get_vault_children/document result that references it).
+
+    Args:
+        url: A Basecamp URL for the cloud file, containing "cloud_files/{id}"
+    """
+    match = re.search(r'cloud_files/(\d+)', url)
+    if not match:
+        return {
+            "error": "Invalid input",
+            "message": "Could not find a cloud file ID in that URL. Expected a Basecamp URL containing \"cloud_files/{id}\", e.g. https://app.basecamp.com/{account}/buckets/{project}/cloud_files/{id}."
+        }
+    cloud_file_id = match.group(1)
+
+    client = await _get_basecamp_client()
+    if not client:
+        return _get_auth_error_response()
+
+    try:
+        cloud_file = await _run_sync(client.get_cloud_file, cloud_file_id)
+        return {
+            "status": "success",
+            "cloud_file": cloud_file
+        }
+    except Exception as e:
+        logger.error(f"Error getting cloud file: {e}")
         if "401" in str(e) and "expired" in str(e).lower():
             return {
                 "error": "OAuth token expired",

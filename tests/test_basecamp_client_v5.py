@@ -447,6 +447,29 @@ class TestVaults(unittest.TestCase):
         self.assertIn("Failed to update vault", str(ctx.exception))
 
 
+class TestCloudFiles(unittest.TestCase):
+    def setUp(self):
+        self.client = make_client()
+
+    @patch.object(BasecampClient, 'get')
+    def test_get_cloud_file(self, mock_get):
+        mock_get.return_value = make_response(200, {"id": 5276167238, "title": "Brand assets", "type": "CloudFile"})
+
+        result = self.client.get_cloud_file('5276167238')
+
+        self.assertEqual(result, {"id": 5276167238, "title": "Brand assets", "type": "CloudFile"})
+        mock_get.assert_called_once_with('cloud_files/5276167238.json')
+
+    @patch.object(BasecampClient, 'get')
+    def test_get_cloud_file_raises_on_failure(self, mock_get):
+        mock_get.return_value = make_response(404, "Not Found")
+
+        with self.assertRaises(Exception) as ctx:
+            self.client.get_cloud_file('5276167238')
+
+        self.assertIn("Failed to get cloud file", str(ctx.exception))
+
+
 class TestComments(unittest.TestCase):
     def setUp(self):
         self.client = make_client()

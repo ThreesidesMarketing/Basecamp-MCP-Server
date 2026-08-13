@@ -2026,30 +2026,40 @@ class BasecampClient:
             raise Exception(f"Failed to get vault: {response.status_code} - {response.text}")
 
     def get_vault_children(self, project_id, vault_id=None):
-        """Get everything filed directly under a vault, handling pagination.
+        """Get the nested sub-vaults filed directly under a vault, handling pagination.
 
-        Unlike the documented `vaults/{id}/vaults.json` endpoint (which
-        only returns nested sub-vaults), this uses the vault's own
-        `children_url` route, which returns every child type Basecamp
-        allows directly under a vault: nested Vaults (sub-folders) and
-        CloudFiles (embedded Google Drive/Dropbox/Box/etc. links) at
-        minimum. Each item's own "type" field tells you which.
+        Uses the documented `vaults/{id}/vaults.json` flat route. An
+        earlier version of this method used the vault's `children_url`
+        (`buckets/{id}/vaults/{id}/children.json`) hoping to also surface
+        CloudFile children (embedded Google Drive/Dropbox/Box/etc. links),
+        since that route's payload includes both types when fetched via
+        Basecamp's session-authenticated web app. Verified live against
+        the OAuth REST API on 2026-08-13: that route returns 204 No
+        Content with an empty body (only an `X-Total-Count` header) over
+        OAuth, so it never actually returns item data through this
+        client — it silently returns nothing rather than failing loudly
+        until this bug was found. `vaults/{id}/vaults.json` is confirmed
+        working (200, full array) but only returns Vault-type children;
+        Basecamp's public API has no working list endpoint for a vault's
+        CloudFile children as of this writing.
 
-        If vault_id is not provided, lists the children of the project's
-        root vault.
+        If vault_id is not provided, lists the sub-vaults of the
+        project's root vault.
 
         Args:
-            project_id (str): The project ID
+            project_id (str): The project ID. Kept for interface
+                consistency with the rest of the codebase; the flat
+                route scopes by vault_id alone.
             vault_id (str, optional): Parent vault ID. If omitted, the
                 project's root vault is used as the parent.
 
         Returns:
-            list: Child items (mixed types; see item["type"])
+            list: Nested sub-vaults (type "Vault")
         """
         if not vault_id:
             vault_id = self.get_vault(project_id)['id']
 
-        endpoint = f"buckets/{project_id}/vaults/{vault_id}/children.json"
+        endpoint = f"vaults/{vault_id}/vaults.json"
 
         all_children = []
         page = 1

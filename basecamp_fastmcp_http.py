@@ -2668,11 +2668,15 @@ async def get_vault(project_id: str, vault_id: str = "") -> Dict[str, Any]:
 
 @mcp.tool()
 async def get_vault_children(project_id: str, vault_id: str = "") -> Dict[str, Any]:
-    """List everything filed directly under a vault (confirmed to include sub-vaults and cloud files; may also include docs/uploads filed directly in the vault — not verified against a live account). Uses the project's root vault if vault_id is omitted.
+    """List the sub-vaults (folders) nested directly under a vault. Uses the project's root vault if vault_id is omitted.
+
+    Only returns Vault-type children (sub-folders), not cloud-file links, documents, or uploads
+    filed directly in the vault — Basecamp's public API has no working endpoint to list those.
+    Use get_documents/get_uploads (with this vault's or a sub-vault's ID) for those.
 
     Args:
         project_id: Project ID
-        vault_id: Optional parent vault ID. If omitted, lists children of the project's root vault.
+        vault_id: Optional parent vault ID. If omitted, lists sub-vaults of the project's root vault.
     """
     client = await _get_basecamp_client()
     if not client:

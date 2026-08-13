@@ -327,18 +327,14 @@ class TestVaults(unittest.TestCase):
         vault_response = make_response(200, {"id": 777, "title": "Docs & Files"})
         children_response = make_response(200, [
             {"id": 1, "title": "HR Stuff", "type": "Vault"},
-            {"id": 2, "title": "Brand assets", "type": "CloudFile"},
         ])
         mock_get.side_effect = [project_response, vault_response, children_response]
 
         result = self.client.get_vault_children('999')
 
-        self.assertEqual(result, [
-            {"id": 1, "title": "HR Stuff", "type": "Vault"},
-            {"id": 2, "title": "Brand assets", "type": "CloudFile"},
-        ])
+        self.assertEqual(result, [{"id": 1, "title": "HR Stuff", "type": "Vault"}])
         third_call_endpoint = mock_get.call_args_list[2][0][0]
-        self.assertEqual(third_call_endpoint, 'buckets/999/vaults/777/children.json')
+        self.assertEqual(third_call_endpoint, 'vaults/777/vaults.json')
 
     @patch.object(BasecampClient, 'get')
     def test_get_vault_children_with_explicit_parent_id(self, mock_get):
@@ -349,7 +345,7 @@ class TestVaults(unittest.TestCase):
         self.assertEqual(result, [{"id": 2, "title": "Materials", "type": "Vault"}])
         endpoint = mock_get.call_args[0][0]
         params = mock_get.call_args[1]['params']
-        self.assertEqual(endpoint, 'buckets/999/vaults/42/children.json')
+        self.assertEqual(endpoint, 'vaults/42/vaults.json')
         self.assertEqual(params, {'page': 1})
 
     @patch.object(BasecampClient, 'get')
@@ -357,16 +353,16 @@ class TestVaults(unittest.TestCase):
         page_one = make_response(
             200,
             [{"id": 1, "title": "HR Stuff", "type": "Vault"}],
-            headers={"Link": '<https://3.basecampapi.com/12345/buckets/999/vaults/42/children.json?page=2>; rel="next"'},
+            headers={"Link": '<https://3.basecampapi.com/12345/vaults/42/vaults.json?page=2>; rel="next"'},
         )
-        page_two = make_response(200, [{"id": 2, "title": "Brand assets", "type": "CloudFile"}])
+        page_two = make_response(200, [{"id": 2, "title": "Materials", "type": "Vault"}])
         mock_get.side_effect = [page_one, page_two]
 
         result = self.client.get_vault_children('999', '42')
 
         self.assertEqual(result, [
             {"id": 1, "title": "HR Stuff", "type": "Vault"},
-            {"id": 2, "title": "Brand assets", "type": "CloudFile"},
+            {"id": 2, "title": "Materials", "type": "Vault"},
         ])
         self.assertEqual(mock_get.call_count, 2)
         first_params = mock_get.call_args_list[0][1]['params']

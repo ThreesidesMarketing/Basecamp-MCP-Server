@@ -2668,7 +2668,7 @@ async def get_vault(project_id: str, vault_id: str = "") -> Dict[str, Any]:
 
 @mcp.tool()
 async def get_vault_children(project_id: str, vault_id: str = "") -> Dict[str, Any]:
-    """List everything filed directly under a vault (sub-vaults, cloud files, docs, uploads). Uses the project's root vault if vault_id is omitted.
+    """List everything filed directly under a vault (confirmed to include sub-vaults and cloud files; may also include docs/uploads filed directly in the vault — not verified against a live account). Uses the project's root vault if vault_id is omitted.
 
     Args:
         project_id: Project ID

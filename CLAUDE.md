@@ -88,6 +88,7 @@ Basecamp 3 API (https://3.basecampapi.com/{account_id})
 - **Campfire (Chat)**: `get_campfire_lines`, `get_campfire`
 - **Schedule**: `get_schedule`, `get_schedule_entries`
 - **External Links**: `get_external_links`, `get_external_link`, `create_external_link`, `rename_external_link`, `trash_external_link`
+- **Vaults**: `get_vault`, `get_vault_children`, `create_vault`, `update_vault`
 - **Documents**: `get_documents`, `create_document`, `update_document`, `trash_document`
 - **Inbox (Email Forwards)**: `get_inbox`, `get_forwards`, `get_forward`, `get_inbox_replies`, `get_inbox_reply`, `trash_forward`
 - **Search**: `search_basecamp`, `get_search_metadata`, `global_search`, `search_projects`
@@ -96,9 +97,9 @@ Basecamp 3 API (https://3.basecampapi.com/{account_id})
 
 ## API Coverage vs bc-api Reference
 
-Maps every doc in [basecamp/bc-api/sections](https://github.com/basecamp/bc-api/tree/master/sections) (the Basecamp 4 API reference) against `basecamp_fastmcp_http.py`'s tool set. **Full** = every documented endpoint has a tool. **Partial** = some endpoints covered, gap noted. **None** = zero tool coverage. **N/A** = conceptual doc, not a CRUD resource. Last audited 2026-08-12 (64 sections).
+Maps every doc in [basecamp/bc-api/sections](https://github.com/basecamp/bc-api/tree/master/sections) (the Basecamp 4 API reference) against `basecamp_fastmcp_http.py`'s tool set. **Full** = every documented endpoint has a tool. **Partial** = some endpoints covered, gap noted. **None** = zero tool coverage. **N/A** = conceptual doc, not a CRUD resource. Last audited 2026-08-13 (64 sections).
 
-**Summary: 20 Full · 11 Partial · 30 None · 3 N/A**
+**Summary: 21 Full · 11 Partial · 29 None · 3 N/A**
 
 ### Projects & account
 
@@ -152,7 +153,7 @@ Maps every doc in [basecamp/bc-api/sections](https://github.com/basecamp/bc-api/
 | --- | --- | --- |
 | `documents.md` | Full | `get_documents`, `get_document`, `create_document`, `update_document`, `trash_document` |
 | `uploads.md` | Partial | `get_uploads`, `get_upload` only; missing create, update, version list, replace-version, trash |
-| `vaults.md` | None | No list/get/create/update vaults |
+| `vaults.md` | Full | `get_vault`, `get_vault_children`, `create_vault`, `update_vault` (no delete/trash endpoint exists in the API; `get_vault_children` uses the undocumented-but-live `children.json` route rather than the documented vaults-only `vaults.json`, since it's the only way to surface `CloudFile` children alongside sub-vaults) |
 | `google_documents.md` | None | No Google Docs/Sheets/Slides vault resource support |
 | `cloud_files.md` | None | No Google Drive/Dropbox/Box cloud file support |
 | `attachments.md` | Full | `create_attachment` |

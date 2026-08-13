@@ -304,6 +304,24 @@ class TestVaults(unittest.TestCase):
         self.assertIn("No vault found for project", str(ctx.exception))
 
     @patch.object(BasecampClient, 'get')
+    def test_get_vault_raises_when_multiple_vaults_in_dock(self, mock_get):
+        mock_get.return_value = make_response(200, {"dock": [
+            {"name": "vault", "id": 3513252690, "title": "Docs & Files"},
+            {"name": "vault", "id": 5276166090, "title": "ProWorkFlow"},
+        ]})
+
+        with self.assertRaises(Exception) as ctx:
+            self.client.get_vault('999')
+
+        message = str(ctx.exception)
+        self.assertIn("multiple", message.lower())
+        self.assertIn("Docs & Files", message)
+        self.assertIn("3513252690", message)
+        self.assertIn("ProWorkFlow", message)
+        self.assertIn("5276166090", message)
+        mock_get.assert_called_once()
+
+    @patch.object(BasecampClient, 'get')
     def test_get_vault_with_explicit_id_skips_dock_lookup(self, mock_get):
         mock_get.return_value = make_response(200, {"id": 42, "title": "Materials"})
 

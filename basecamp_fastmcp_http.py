@@ -2640,6 +2640,11 @@ async def trash_external_link(link_id: str) -> Dict[str, Any]:
 async def get_vault(project_id: str, vault_id: str = "") -> Dict[str, Any]:
     """Get a vault. Returns the project's root vault if vault_id is omitted.
 
+    A project can have more than one top-level vault (Basecamp allows adding the "Docs & Files"
+    tool multiple times). If vault_id is omitted and the project has more than one, this raises
+    an error listing each vault's title and id — call get_project to see all of them under "dock"
+    (name == "vault"), then retry with an explicit vault_id.
+
     Args:
         project_id: Project ID
         vault_id: Optional vault ID. If omitted, returns the project's root vault.
@@ -2674,6 +2679,9 @@ async def get_vault_children(project_id: str, vault_id: str = "") -> Dict[str, A
     filed directly in the vault — Basecamp's public API has no working endpoint to list those.
     Use get_documents/get_uploads (with this vault's or a sub-vault's ID) for those.
 
+    If vault_id is omitted and the project has more than one top-level vault, this raises an
+    error listing each one's title and id — see get_vault's docstring for how to enumerate them.
+
     Args:
         project_id: Project ID
         vault_id: Optional parent vault ID. If omitted, lists sub-vaults of the project's root vault.
@@ -2704,6 +2712,9 @@ async def get_vault_children(project_id: str, vault_id: str = "") -> Dict[str, A
 @mcp.tool()
 async def create_vault(project_id: str, title: str, vault_id: str = "") -> Dict[str, Any]:
     """Create a child vault. Nests under the project's root vault if vault_id is omitted.
+
+    If vault_id is omitted and the project has more than one top-level vault, this raises an
+    error listing each one's title and id — see get_vault's docstring for how to enumerate them.
 
     Args:
         project_id: Project ID

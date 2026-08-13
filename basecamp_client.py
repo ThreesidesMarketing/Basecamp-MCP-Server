@@ -2003,20 +2003,33 @@ class BasecampClient:
         discovered from the project's dock array (name == "vault"),
         following the same pattern as get_todoset().
 
+        A project can have more than one top-level vault (Basecamp allows
+        adding the "Docs & Files" tool multiple times) - if the dock has
+        more than one, this raises rather than silently picking the
+        first one, since silently picking wrong makes the other vault's
+        contents invisible with no error to explain why.
+
         Args:
             project_id (str): The project ID
             vault_id (str, optional): Specific vault ID to retrieve. If
-                omitted, the project's root vault is returned.
+                omitted, the project's root vault is returned (or an
+                exception is raised if the project has more than one).
 
         Returns:
             dict: The vault object
         """
         if not vault_id:
             project = self.get_project(project_id)
-            try:
-                vault_id = next(_ for _ in project["dock"] if _["name"] == "vault")["id"]
-            except (IndexError, TypeError, StopIteration):
+            vault_dock_items = [item for item in (project.get("dock") or []) if item.get("name") == "vault"]
+            if not vault_dock_items:
                 raise Exception(f"No vault found for project: {project_id}")
+            if len(vault_dock_items) > 1:
+                options = ", ".join(f"{item['title']!r} (id={item['id']})" for item in vault_dock_items)
+                raise Exception(
+                    f"Project {project_id} has multiple top-level vaults; "
+                    f"specify vault_id explicitly. Options: {options}"
+                )
+            vault_id = vault_dock_items[0]["id"]
 
         endpoint = f"vaults/{vault_id}.json"
         response = self.get(endpoint)

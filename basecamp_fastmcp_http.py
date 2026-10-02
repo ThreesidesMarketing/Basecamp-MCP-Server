@@ -28,15 +28,17 @@ PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 DOTENV_PATH = os.path.join(PROJECT_ROOT, '.env')
 load_dotenv(DOTENV_PATH)
 
-# Set up logging to file AND stderr (following MCP best practices)
-LOG_FILE_PATH = os.path.join(PROJECT_ROOT, 'basecamp_fastmcp.log')
+# Set up logging to stderr, plus a file unless LOG_FILE is set to empty (e.g. in containers)
+# LOG_LEVEL defaults to INFO; DEBUG is verbose but never includes token values
+LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO').upper()
+LOG_FILE_PATH = os.getenv('LOG_FILE', os.path.join(PROJECT_ROOT, 'basecamp_fastmcp.log'))
+_log_handlers = [logging.StreamHandler(sys.stderr)]  # Critical: log to stderr, not stdout
+if LOG_FILE_PATH:
+    _log_handlers.append(logging.FileHandler(LOG_FILE_PATH))
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=getattr(logging, LOG_LEVEL, logging.INFO),
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(LOG_FILE_PATH),
-        logging.StreamHandler(sys.stderr)  # Critical: log to stderr, not stdout
-    ]
+    handlers=_log_handlers
 )
 logger = logging.getLogger('basecamp_fastmcp')
 
@@ -48,7 +50,7 @@ async def _get_basecamp_client() -> Optional[BasecampClient]:
     """Get authenticated Basecamp client (sync version from original server)."""
     try:
         token_data = token_storage.get_token()
-        logger.debug(f"Token data retrieved: {token_data}")
+        logger.debug(f"Token data retrieved (keys: {sorted(token_data.keys()) if token_data else []})")
 
         if not token_data or not token_data.get('access_token'):
             logger.error("No OAuth token available")
@@ -67,7 +69,7 @@ async def _get_basecamp_client() -> Optional[BasecampClient]:
         user_agent = os.getenv('USER_AGENT') or "Basecamp MCP Server (cursor@example.com)"
 
         if not account_id:
-            logger.error(f"Missing account_id. Token data: {token_data}, Env BASECAMP_ACCOUNT_ID: {os.getenv('BASECAMP_ACCOUNT_ID')}")
+            logger.error(f"Missing account_id. Token data has no account_id and BASECAMP_ACCOUNT_ID is not set")
             return None
 
         logger.debug(f"Creating Basecamp client with account_id: {account_id}, user_agent: {user_agent}")

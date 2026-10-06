@@ -786,6 +786,71 @@ class BasecampClient:
         else:
             raise Exception(f"Failed to get due assignments: {response.status_code} - {response.text}")
 
+    # Reports methods (account-wide, one request instead of a per-list fan-out)
+    def get_upcoming_schedule(self, window_starts_on, window_ends_on):
+        """Get schedule entries and assignables (to-dos, cards, steps) in a date window.
+
+        An assignable is included when its starts_on..due_on span overlaps the
+        window, so multi-day to-dos appear even if they aren't due inside it.
+
+        Args:
+            window_starts_on (str): YYYY-MM-DD
+            window_ends_on (str): YYYY-MM-DD
+
+        Returns:
+            dict: 'schedule_entries', 'recurring_schedule_entry_occurrences', 'assignables'
+        """
+        response = self.get('reports/schedules/upcoming.json', params={
+            'window_starts_on': window_starts_on,
+            'window_ends_on': window_ends_on,
+        })
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise Exception(f"Failed to get upcoming schedule: {response.status_code} - {response.text}")
+
+    def get_overdue_todos(self):
+        """Get all overdue to-dos across the account.
+
+        Returns:
+            dict: 'under_a_week_late', 'over_a_week_late', 'over_a_month_late',
+                'over_three_months_late', each a list of to-dos
+        """
+        response = self.get('reports/todos/overdue.json')
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise Exception(f"Failed to get overdue todos: {response.status_code} - {response.text}")
+
+    def get_assignable_people(self):
+        """Get everyone who can have to-dos assigned.
+
+        Returns:
+            list: Person objects
+        """
+        response = self.get('reports/todos/assigned.json')
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise Exception(f"Failed to get assignable people: {response.status_code} - {response.text}")
+
+    def get_person_todos(self, person_id):
+        """Get a person's active, pending to-dos across all projects.
+
+        Basecamp returns at most 100 to-dos here and does not paginate.
+
+        Args:
+            person_id: The person ID
+
+        Returns:
+            dict: 'person', 'grouped_by', 'todos'
+        """
+        response = self.get(f'reports/todos/assigned/{person_id}.json')
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise Exception(f"Failed to get todos for person {person_id}: {response.status_code} - {response.text}")
+
     def prioritize_assignment(self, recording_id):
         """Add a recording to "Up Next", the current user's prioritized assignment list.
 

@@ -6,10 +6,12 @@ This server implements the MCP (Model Context Protocol) using the official
 Anthropic FastMCP framework, replacing the custom JSON-RPC implementation.
 """
 
+import html
 import logging
 import os
 import re
 import sys
+from datetime import date
 from typing import Any, Dict, List, Optional
 import anyio
 import httpx
@@ -101,6 +103,130 @@ async def _run_sync(func, *args, **kwargs):
     """Wrapper to run synchronous functions in thread pool."""
     return await anyio.to_thread.run_sync(func, *args, **kwargs)
 
+
+# Compact projections. Raw Basecamp records carry ~30 fields (URLs, avatars,
+# creator/bucket objects, HTML descriptions); an LLM caller needs about ten.
+def _plain_text(html_text: Optional[str], limit: int = 300) -> Optional[str]:
+    if not html_text:
+        return None
+    text = html.unescape(re.sub(r'<[^>]+>', ' ', html_text))
+    text = re.sub(r'\s+', ' ', text).strip()
+    if not text:
+        return None
+    return text if len(text) <= limit else text[:limit].rstrip() + '…'
+
+
+def _drop_empty(d: Dict[str, Any]) -> Dict[str, Any]:
+    return {k: v for k, v in d.items() if v not in (None, [], '')}
+
+
+def _slim_todo(t: Dict[str, Any], with_notes: bool = False) -> Dict[str, Any]:
+    bucket = t.get('bucket') or {}
+    parent = t.get('parent') or {}
+    item_type = t.get('type')
+    slim = {
+        'id': t.get('id'),
+        'type': item_type if item_type and item_type.lower() != 'todo' else None,
+        'title': t.get('title') or t.get('content'),
+        'project': bucket.get('name'),
+        'project_id': bucket.get('id'),
+        'list': parent.get('title'),
+        'list_id': parent.get('id'),
+        'assignees': [p.get('name') for p in t.get('assignees') or []],
+        'starts_on': t.get('starts_on'),
+        'due_on': t.get('due_on'),
+        'completed': t.get('completed') or None,
+        'comments_count': t.get('comments_count') or None,
+        'app_url': t.get('app_url'),
+    }
+    if with_notes:
+        slim['notes'] = _plain_text(t.get('description'))
+    return _drop_empty(slim)
+
+
+def _slim_todolist(tl: Dict[str, Any]) -> Dict[str, Any]:
+    return _drop_empty({
+        'id': tl.get('id'),
+        'title': tl.get('title') or tl.get('name'),
+        'todoset': (tl.get('todoset') or {}).get('name'),
+        'completed_ratio': tl.get('completed_ratio'),
+        'notes': _plain_text(tl.get('description'), 150),
+        'app_url': tl.get('app_url'),
+    })
+
+
+def _slim_recording(r: Dict[str, Any]) -> Dict[str, Any]:
+    """Compact any recording (search hit): what it is, where it lives, a snippet."""
+    bucket = r.get('bucket') or {}
+    parent = r.get('parent') or {}
+    snippet = r.get('plain_text_content') or r.get('plain_text_description')
+    if snippet is None:
+        snippet = _plain_text(r.get('content') or r.get('description'), 200)
+    elif len(snippet) > 200:
+        snippet = snippet[:200].rstrip() + '…'
+    return _drop_empty({
+        'id': r.get('id'),
+        'type': r.get('type'),
+        'title': r.get('title') or r.get('name'),
+        'project': bucket.get('name'),
+        'project_id': bucket.get('id'),
+        'parent': parent.get('title'),
+        'snippet': snippet,
+        'creator': (r.get('creator') or {}).get('name'),
+        'updated_at': (r.get('updated_at') or '')[:10] or None,
+        'app_url': r.get('app_url'),
+    })
+
+
+def _slim_schedule_entry(e: Dict[str, Any]) -> Dict[str, Any]:
+    bucket = e.get('bucket') or {}
+    return _drop_empty({
+        'id': e.get('id'),
+        'title': e.get('summary') or e.get('title'),
+        'project': bucket.get('name'),
+        'project_id': bucket.get('id'),
+        'starts_at': e.get('starts_at'),
+        'ends_at': e.get('ends_at'),
+        'all_day': e.get('all_day') or None,
+        'participants': [p.get('name') for p in e.get('participants') or []],
+        'app_url': e.get('app_url'),
+    })
+
+
+def _matches_project(item: Dict[str, Any], project: str) -> bool:
+    """project is a project ID or a case-insensitive fragment of its name."""
+    if not project:
+        return True
+    bucket = item.get('bucket') or {}
+    if project.strip().isdigit():
+        return str(bucket.get('id')) == project.strip()
+    return project.strip().lower() in (bucket.get('name') or '').lower()
+
+
+def _matches_assignee(item: Dict[str, Any], assignee: str) -> bool:
+    """assignee is a person ID or a case-insensitive fragment of their name."""
+    if not assignee:
+        return True
+    people = (item.get('assignees') or []) + (item.get('participants') or [])
+    needle = assignee.strip().lower()
+    if needle.isdigit():
+        return any(str(p.get('id')) == needle for p in people)
+    return any(needle in (p.get('name') or '').lower() for p in people)
+
+
+def _parse_date(value: str, name: str) -> date:
+    try:
+        return date.fromisoformat(value.strip())
+    except (AttributeError, ValueError):
+        raise ValueError(f"{name} must be a date in YYYY-MM-DD format, got {value!r}")
+
+
+def _error_response(e: Exception, action: str) -> Dict[str, Any]:
+    logger.error(f"Error {action}: {e}")
+    if "401" in str(e) and "expired" in str(e).lower():
+        return {"error": "OAuth token expired", "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."}
+    return {"error": "Execution error", "message": str(e)}
+
 # Core MCP Tools - Starting with essential ones from original server
 
 @mcp.tool()
@@ -190,11 +316,14 @@ async def search_basecamp(
     since: str = "",
     sort: str = "",
     page: int = 1,
-    per_page: int = 50,
+    per_page: int = 20,
+    full: bool = False,
 ) -> Dict[str, Any]:
-    """Search recordings across the account using Basecamp's native search.
+    """Search recordings (to-dos, messages, documents, comments, files, chat) across
+    the account using Basecamp's native search. Fast: one request.
 
-    Call get_search_metadata first to discover valid type_names/file_type values.
+    Returns compact results (type, title, project, parent, snippet, app_url).
+    Call get_search_metadata to discover valid type_names/file_type values.
 
     Args:
         query: The search query string
@@ -206,7 +335,8 @@ async def search_basecamp(
         since: One of 'last_7_days', 'last_30_days', 'last_90_days', 'last_12_months', 'forever'
         sort: 'best_match' (default) or 'recency'
         page: Page number, default 1
-        per_page: Results per page, default 50
+        per_page: Maximum results to return, default 20
+        full: Return the raw Basecamp records instead of compact results
     """
     client = await _get_basecamp_client()
     if not client:
@@ -227,6 +357,11 @@ async def search_basecamp(
                 per_page=per_page,
             )
         )
+        if isinstance(results, list):
+            # Basecamp ignores per_page and returns up to 50 hits per page
+            results = results[:per_page]
+            if not full:
+                results = [_slim_recording(r) for r in results]
         return {
             "status": "success",
             "query": query,
@@ -246,21 +381,26 @@ async def search_basecamp(
         }
 
 @mcp.tool()
-async def get_todolists(project_id, todoset_id=""):
+async def get_todolists(project_id, todoset_id="", full: bool = False):
     """Get todo lists for a project, optionally filtered by todoset.
+
+    Returns a compact summary per list (id, title, todoset, completed_ratio).
+    To find to-dos by due date, use get_todos_due instead of walking every list.
+
     Args:
         project_id: The project ID
         todoset_id: Optional todoset ID to filter todolists. If empty, returns todolists from all todosets.
+        full: Return the raw Basecamp records instead of the compact summary
     """
     client = await _get_basecamp_client()
     if not client:
         return _get_auth_error_response()
-    
+
     try:
         todolists = await _run_sync(client.get_todolists, project_id, todoset_id)
         return {
             "status": "success",
-            "todolists": todolists,
+            "todolists": todolists if full else [_slim_todolist(tl) for tl in todolists],
             "count": len(todolists)
         }
     except Exception as e:
@@ -336,22 +476,33 @@ async def get_todoset(project_id: str, todoset_id: str = "") -> Dict[str, Any]:
         }
 
 @mcp.tool()
-async def get_todos(project_id: str, todolist_id: str) -> Dict[str, Any]:
-    """Get todos from a todo list.
-    
+async def get_todos(project_id: str, todolist_id: str, full: bool = False) -> Dict[str, Any]:
+    """Get the active (incomplete) todos in a todo list, including those inside its groups.
+
+    Returns compact records (title, list, assignees, dates, short notes).
+    To find to-dos by due date, use get_todos_due instead of walking every list.
+
     Args:
         project_id: Project ID
         todolist_id: The todo list ID
+        full: Return the raw Basecamp records (list's own todos only, no groups)
     """
     client = await _get_basecamp_client()
     if not client:
         return _get_auth_error_response()
-    
+
     try:
         todos = await _run_sync(client.get_todos, project_id, todolist_id)
+        if full:
+            return {"status": "success", "todos": todos, "count": len(todos)}
+
+        # Todos inside a list's groups aren't returned by the list's own endpoint
+        groups = await _run_sync(client.get_todolist_groups, project_id, todolist_id)
+        for group in groups:
+            todos = todos + await _run_sync(client.get_todos, project_id, str(group['id']))
         return {
             "status": "success",
-            "todos": todos,
+            "todos": [_slim_todo(t, with_notes=True) for t in todos],
             "count": len(todos)
         }
     except Exception as e:
@@ -367,12 +518,13 @@ async def get_todos(project_id: str, todolist_id: str) -> Dict[str, Any]:
         }
 
 @mcp.tool()
-async def get_todo(project_id: str, todo_id: str) -> Dict[str, Any]:
-    """Get a single todo item by its ID.
+async def get_todo(project_id: str, todo_id: str, full: bool = False) -> Dict[str, Any]:
+    """Get a single todo item by its ID, including its notes.
 
     Args:
         project_id: Project ID. Kept for backward compatibility; the request is scoped by the record's own ID alone.
         todo_id: The todo ID
+        full: Return the raw Basecamp record instead of the compact one
     """
     client = await _get_basecamp_client()
     if not client:
@@ -380,6 +532,11 @@ async def get_todo(project_id: str, todo_id: str) -> Dict[str, Any]:
 
     try:
         todo = await _run_sync(client.get_todo, project_id, todo_id)
+        if not full:
+            slim = _slim_todo(todo)
+            slim['notes'] = _plain_text(todo.get('description'), 2000)
+            slim['creator'] = (todo.get('creator') or {}).get('name')
+            todo = _drop_empty(slim)
         return {
             "status": "success",
             "todo": todo
@@ -699,14 +856,15 @@ async def global_search(query: str) -> Dict[str, Any]:
         }
 
 @mcp.tool()
-async def get_comments(recording_id: str, project_id: str, page: int = 1) -> Dict[str, Any]:
-    """Get comments for a Basecamp item.
+async def get_comments(recording_id: str, project_id: str, page: int = 1, full: bool = False) -> Dict[str, Any]:
+    """Get comments for a Basecamp item (author, date, text).
 
     Args:
         recording_id: The item ID
         project_id: The project ID
         page: Page number for pagination (default: 1). Basecamp uses geared pagination:
               page 1 has 15 results, page 2 has 30, page 3 has 50, page 4+ has 100.
+        full: Return the raw Basecamp records instead of compact ones
     """
     client = await _get_basecamp_client()
     if not client:
@@ -714,9 +872,17 @@ async def get_comments(recording_id: str, project_id: str, page: int = 1) -> Dic
 
     try:
         result = await _run_sync(client.get_comments, project_id, recording_id, page)
+        comments = result["comments"]
+        if not full:
+            comments = [_drop_empty({
+                'id': c.get('id'),
+                'author': (c.get('creator') or {}).get('name'),
+                'created_at': (c.get('created_at') or '')[:10] or None,
+                'text': _plain_text(c.get('content'), 1000),
+            }) for c in comments]
         return {
             "status": "success",
-            "comments": result["comments"],
+            "comments": comments,
             "count": len(result["comments"]),
             "page": page,
             "total_count": result["total_count"],
@@ -3782,6 +3948,155 @@ async def trash_project(project_id: str) -> Dict[str, Any]:
         if "401" in str(e) and "expired" in str(e).lower():
             return {"error": "OAuth token expired", "message": "Your Basecamp OAuth token expired during the API call. Please re-authenticate by visiting http://localhost:8000 and completing the OAuth flow again."}
         return {"error": "Execution error", "message": str(e)}
+
+
+# Report tools: answer common "what's due / overdue / on X's plate" questions
+# account-wide in one or two API calls, filtered and compacted server-side.
+
+@mcp.tool()
+async def get_todos_due(start_date: str, end_date: str = "", project: str = "",
+                        assignee: str = "", include_spanning: bool = False) -> Dict[str, Any]:
+    """Find to-dos and cards due in a date range, across all projects, in one call.
+
+    Use this for any "what's due today / this week / on <date>" question instead
+    of walking todolists. Also returns calendar (schedule) entries in the range.
+
+    Args:
+        start_date: First day of the range, YYYY-MM-DD
+        end_date: Last day of the range, YYYY-MM-DD. Defaults to start_date (a single day)
+        project: Optional project ID or part of the project name (e.g. "Threesides HQ")
+        assignee: Optional person ID or part of their name (e.g. "Shannon")
+        include_spanning: Also include multi-day items whose start..due span overlaps
+            the range but whose due date falls outside it
+    """
+    client = await _get_basecamp_client()
+    if not client:
+        return await _get_auth_error_response()
+
+    try:
+        start = _parse_date(start_date, "start_date")
+        end = _parse_date(end_date, "end_date") if end_date else start
+        if end < start:
+            raise ValueError("end_date is before start_date")
+
+        report = await _run_sync(client.get_upcoming_schedule, start.isoformat(), end.isoformat())
+
+        def in_range(item):
+            if include_spanning:
+                return True
+            due = item.get('due_on')
+            return bool(due) and start.isoformat() <= due <= end.isoformat()
+
+        items = [a for a in report.get('assignables') or []
+                 if not a.get('completed') and in_range(a)
+                 and _matches_project(a, project) and _matches_assignee(a, assignee)]
+        items.sort(key=lambda a: (a.get('due_on') or '', (a.get('bucket') or {}).get('name') or '',
+                                  (a.get('parent') or {}).get('title') or ''))
+
+        entries = [e for e in (report.get('schedule_entries') or []) + (report.get('recurring_schedule_entry_occurrences') or [])
+                   if _matches_project(e, project) and _matches_assignee(e, assignee)]
+
+        return {
+            "status": "success",
+            "range": {"start": start.isoformat(), "end": end.isoformat()},
+            "todos": [_slim_todo(a) for a in items],
+            "count": len(items),
+            "schedule_entries": [_slim_schedule_entry(e) for e in entries],
+        }
+    except Exception as e:
+        return _error_response(e, "getting todos due")
+
+
+@mcp.tool()
+async def get_overdue_todos(project: str = "", assignee: str = "", max_results: int = 50) -> Dict[str, Any]:
+    """Find overdue (incomplete, past due date) to-dos across all projects in one call.
+
+    Results are sorted most-recently-due first. counts_by_project always covers
+    every match, even when the todos list is cut to max_results.
+
+    Args:
+        project: Optional project ID or part of the project name
+        assignee: Optional person ID or part of their name
+        max_results: Maximum to-dos to return (default 50)
+    """
+    client = await _get_basecamp_client()
+    if not client:
+        return await _get_auth_error_response()
+
+    try:
+        report = await _run_sync(client.get_overdue_todos)
+        items = []
+        for lateness, todos in report.items():
+            if not isinstance(todos, list):
+                continue
+            for t in todos:
+                if _matches_project(t, project) and _matches_assignee(t, assignee):
+                    items.append(t)
+        items.sort(key=lambda t: t.get('due_on') or '', reverse=True)
+
+        counts: Dict[str, int] = {}
+        for t in items:
+            name = (t.get('bucket') or {}).get('name') or 'Unknown'
+            counts[name] = counts.get(name, 0) + 1
+
+        limit = max(1, int(max_results))
+        return {
+            "status": "success",
+            "todos": [_slim_todo(t) for t in items[:limit]],
+            "count": len(items),
+            "returned": min(len(items), limit),
+            "counts_by_project": dict(sorted(counts.items(), key=lambda kv: -kv[1])),
+        }
+    except Exception as e:
+        return _error_response(e, "getting overdue todos")
+
+
+@mcp.tool()
+async def get_person_todos(person: str, project: str = "") -> Dict[str, Any]:
+    """Get the open to-dos assigned to one person, across all projects, in one call.
+
+    Args:
+        person: Person ID or part of their name (e.g. "Brittany")
+        project: Optional project ID or part of the project name
+    """
+    client = await _get_basecamp_client()
+    if not client:
+        return await _get_auth_error_response()
+
+    try:
+        needle = person.strip()
+        if needle.isdigit():
+            person_id = needle
+        else:
+            people = await _run_sync(client.get_assignable_people)
+            matches = [p for p in people if needle.lower() in (p.get('name') or '').lower()]
+            if not matches:
+                return {"error": "Person not found", "message": f"No assignable person matches {person!r}."}
+            if len(matches) > 1:
+                return {
+                    "error": "Ambiguous person",
+                    "message": f"{len(matches)} people match {person!r}; call again with one of these IDs.",
+                    "candidates": [{"id": p.get('id'), "name": p.get('name')} for p in matches],
+                }
+            person_id = str(matches[0]['id'])
+
+        report = await _run_sync(client.get_person_todos, person_id)
+        raw_todos = report.get('todos') or []
+        items = [t for t in raw_todos if _matches_project(t, project)]
+        items.sort(key=lambda t: (t.get('due_on') or '9999-12-31', (t.get('bucket') or {}).get('name') or ''))
+
+        result = {
+            "status": "success",
+            "person": (report.get('person') or {}).get('name'),
+            "todos": [_slim_todo(t) for t in items],
+            "count": len(items),
+        }
+        # Basecamp caps this report at 100 with no pagination
+        if len(raw_todos) >= 100:
+            result["note"] = "Basecamp returns at most 100 to-dos for this report; the person may have more."
+        return result
+    except Exception as e:
+        return _error_response(e, "getting person todos")
 
 
 # 🎉 COMPLETE FastMCP server with ALL tools migrated!

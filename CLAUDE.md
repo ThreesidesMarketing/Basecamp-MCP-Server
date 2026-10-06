@@ -92,6 +92,7 @@ Basecamp 3 API (https://3.basecampapi.com/{account_id})
 - **Documents**: `get_documents`, `create_document`, `update_document`, `trash_document`
 - **Inbox (Email Forwards)**: `get_inbox`, `get_forwards`, `get_forward`, `get_inbox_replies`, `get_inbox_reply`, `trash_forward`
 - **Search**: `search_basecamp`, `get_search_metadata`, `global_search`, `search_projects`
+- **Reports (agent-friendly, one call)**: `get_todos_due`, `get_overdue_todos`, `get_person_todos`
 - **Webhooks**: `get_webhooks`, `create_webhook`, `delete_webhook`
 - **Other**: `get_daily_check_ins`, `get_question_answers`, `get_events`, `create_attachment`, `get_uploads`
 
@@ -99,7 +100,7 @@ Basecamp 3 API (https://3.basecampapi.com/{account_id})
 
 Maps every doc in [basecamp/bc-api/sections](https://github.com/basecamp/bc-api/tree/master/sections) (the Basecamp 4 API reference) against `basecamp_fastmcp_http.py`'s tool set. **Full** = every documented endpoint has a tool. **Partial** = some endpoints covered, gap noted. **None** = zero tool coverage. **N/A** = conceptual doc, not a CRUD resource. Last audited 2026-08-13 (64 sections).
 
-**Summary: 21 Full · 12 Partial · 28 None · 3 N/A**
+**Summary: 22 Full · 12 Partial · 27 None · 3 N/A**
 
 ### Projects & account
 
@@ -205,7 +206,7 @@ Maps every doc in [basecamp/bc-api/sections](https://github.com/basecamp/bc-api/
 | Section | Status | Notes |
 | --- | --- | --- |
 | `search.md` | Full | `search_basecamp`, `get_search_metadata`, `global_search`, `search_projects` |
-| `reports.md` | None | No assignable-people, overdue-todos, or upcoming-schedule reports |
+| `reports.md` | Full | `get_todos_due` (upcoming schedule), `get_overdue_todos`, `get_person_todos` (assigned todos; resolves names via the assignable-people report). All filter by project/assignee and return compact records |
 
 ### Automation & integrations
 
@@ -264,6 +265,10 @@ def new_api_method(self, project_id, resource_id):
     else:
         raise Exception(f"Failed: {response.status_code} - {response.text}")
 ```
+
+### Compact Output
+
+Read tools that LLM agents call often (`get_todos`, `get_todolists`, `get_todo`, `get_comments`, `search_basecamp`, and the report tools) return compact records by default via the `_slim_*` helpers; pass `full=True` for raw Basecamp records.
 
 ### Pagination Handling
 

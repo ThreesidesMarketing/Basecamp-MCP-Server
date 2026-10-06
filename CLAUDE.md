@@ -268,7 +268,7 @@ def new_api_method(self, project_id, resource_id):
 
 ### Compact Output
 
-Read tools that LLM agents call often (`get_todos`, `get_todolists`, `get_todo`, `get_comments`, `search_basecamp`, and the report tools) return compact records by default via the `_slim_*` helpers; pass `full=True` for raw Basecamp records.
+Read tools that LLM agents call often (`get_todos`, `get_todolists`, `get_todo`, `get_comments`, `search_basecamp`, and the report tools) return compact records by default via the `_slim_*` helpers; pass `full=True` for raw Basecamp records. `TextOnlyResults` middleware strips output schemas and `structuredContent` so clients like n8n don't send every result to the model twice.
 
 ### Pagination Handling
 

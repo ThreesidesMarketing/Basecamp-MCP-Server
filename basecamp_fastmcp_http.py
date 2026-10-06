@@ -16,6 +16,8 @@ from typing import Any, Dict, List, Optional
 import anyio
 import httpx
 from fastmcp import FastMCP
+from fastmcp.server.middleware import Middleware
+from fastmcp.tools import ToolResult
 
 
 # Import existing business logic
@@ -44,8 +46,27 @@ logging.basicConfig(
 )
 logger = logging.getLogger('basecamp_fastmcp')
 
+class TextOnlyResults(Middleware):
+    """Return tool results as JSON text only.
+
+    Every tool returns a dict, so FastMCP would also attach it as
+    structuredContent under a generic {"type": "object"} output schema.
+    Clients such as n8n forward both to the model, doubling the tokens of
+    every result, and the schema tells the model nothing.
+    """
+
+    async def on_list_tools(self, context, call_next):
+        tools = await call_next(context)
+        return [t.model_copy(update={'output_schema': None}) for t in tools]
+
+    async def on_call_tool(self, context, call_next):
+        result = await call_next(context)
+        return ToolResult(content=result.content)
+
+
 # Initialize FastMCP server
 mcp = FastMCP("basecamp")
+mcp.add_middleware(TextOnlyResults())
 
 # Auth helper functions (reused from original server)
 async def _get_basecamp_client() -> Optional[BasecampClient]:

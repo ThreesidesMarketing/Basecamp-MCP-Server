@@ -214,5 +214,27 @@ class TestCompactSingleItems(unittest.TestCase):
                                                "text": "Moved due to shutdown"}])
 
 
+class TestTextOnlyResults(unittest.TestCase):
+    """Over MCP, tools advertise no output schema and return text content only."""
+
+    def test_list_and_call_over_mcp(self):
+        from fastmcp import Client
+
+        client = MagicMock()
+        client.get_upcoming_schedule.return_value = {"assignables": [todo(1, "Payroll", "2026-10-06")]}
+
+        async def scenario():
+            async with Client(server.mcp) as mcp_client:
+                tools = {t.name: t for t in await mcp_client.list_tools()}
+                result = await mcp_client.call_tool("get_todos_due", {"start_date": "2026-10-06"})
+                return tools, result
+
+        with ClientPatch(client):
+            tools, result = run(scenario())
+        self.assertIsNone(tools["get_todos_due"].output_schema)
+        self.assertIsNone(result.structured_content)
+        self.assertIn('"Payroll"', result.content[0].text)
+
+
 if __name__ == '__main__':
     unittest.main()

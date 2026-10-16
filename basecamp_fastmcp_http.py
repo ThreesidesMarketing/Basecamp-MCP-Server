@@ -25,6 +25,7 @@ from basecamp_client import BasecampClient
 from search_utils import BasecampSearch
 import token_storage
 import auth_manager
+import remote_auth
 from dotenv import load_dotenv
 
 # Determine project root (directory containing this script)
@@ -65,8 +66,11 @@ class TextOnlyResults(Middleware):
 
 
 # Initialize FastMCP server
-mcp = FastMCP("basecamp")
+_auth = remote_auth.build_auth()
+mcp = FastMCP("basecamp", auth=_auth)
 mcp.add_middleware(TextOnlyResults())
+if _auth:
+    mcp.add_middleware(remote_auth.OAuthToolFilter())
 
 # Auth helper functions (reused from original server)
 async def _get_basecamp_client() -> Optional[BasecampClient]:
@@ -4124,4 +4128,4 @@ async def get_person_todos(person: str, project: str = "") -> Dict[str, Any]:
 
 if __name__ == "__main__":
     logger.info("Starting Basecamp FastMCP server")
-    mcp.run(transport='http', host="0.0.0.0", port=8000)
+    mcp.run(transport='http', host="0.0.0.0", port=8000, middleware=remote_auth.asgi_middleware(_auth is not None))

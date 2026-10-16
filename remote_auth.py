@@ -1,6 +1,7 @@
 """Endpoint auth for exposing the HTTP server beyond the Docker network.
 
-Off unless MCP_PUBLIC_URL is set. When on, the server accepts two kinds of
+Off unless MCP_PUBLIC_URL is set, and until then requests that came through a
+reverse proxy are refused. When on, the server accepts two kinds of
 bearer token:
 
 - MCP_INTERNAL_TOKEN: a static token for internal callers such as n8n. Full
@@ -31,6 +32,7 @@ from mcp.shared.auth import InvalidRedirectUriError, OAuthClientInformationFull
 from pydantic import AnyUrl
 from starlette.datastructures import Headers
 from starlette.middleware import Middleware as ASGIMiddleware
+from starlette.responses import JSONResponse
 
 CLAUDE_CALLBACK = "https://claude.ai/api/mcp/auth_callback"
 # Claude Code uses a loopback redirect on a random port
@@ -180,6 +182,24 @@ class BasicToPostTokenAuth:
         await self.app(scope, replay, send)
 
 
+class RejectProxiedRequests:
+    """With auth off, refuse anything that came through a reverse proxy.
+
+    Caddy routes a public hostname here whether or not auth is configured. A
+    proxied request carries X-Forwarded-For; direct calls on the Docker network
+    (n8n) don't. This keeps the server internal-only until MCP_PUBLIC_URL is set.
+    """
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and "x-forwarded-for" in Headers(scope=scope):
+            await JSONResponse({"error": "Remote access is not enabled on this server"}, status_code=403)(scope, receive, send)
+            return
+        await self.app(scope, receive, send)
+
+
 def build_auth():
     """Return the server auth provider, or None when MCP_PUBLIC_URL is unset."""
     public_url = os.getenv("MCP_PUBLIC_URL", "").strip().rstrip("/")
@@ -199,5 +219,7 @@ def build_auth():
     return MultiAuth(server=provider, verifiers=[InternalTokenVerifier(os.environ["MCP_INTERNAL_TOKEN"].strip())])
 
 
-def asgi_middleware() -> list:
+def asgi_middleware(auth_enabled: bool) -> list:
+    if not auth_enabled:
+        return [ASGIMiddleware(RejectProxiedRequests)]
     return [ASGIMiddleware(BasicToPostTokenAuth)]

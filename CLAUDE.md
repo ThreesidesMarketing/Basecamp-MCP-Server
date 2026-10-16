@@ -290,7 +290,7 @@ The account ID can be found in your Basecamp URL: `https://3.basecamp.com/{accou
 
 ### Endpoint auth (remote access)
 
-`remote_auth.py` adds bearer auth to the HTTP server. It's off unless `MCP_PUBLIC_URL` is set. Once set, `MCP_OAUTH_CLIENT_ID`, `MCP_OAUTH_CLIENT_SECRET` and `MCP_INTERNAL_TOKEN` are required, or the server refuses to start.
+`remote_auth.py` adds bearer auth to the HTTP server. It's off unless `MCP_PUBLIC_URL` is set. While it's off, any request carrying `X-Forwarded-For` (i.e. via the Caddy route) gets a 403, so the public hostname can't reach an unauthenticated server. Once set, `MCP_OAUTH_CLIENT_ID`, `MCP_OAUTH_CLIENT_SECRET` and `MCP_INTERNAL_TOKEN` are required, or the server refuses to start.
 
 - `MCP_INTERNAL_TOKEN`: static bearer token for internal callers (n8n). Full tool access.
 - OAuth: one pre-registered client for Claude.ai custom connectors. Open registration is off. Allowed redirects are `https://claude.ai/api/mcp/auth_callback` plus Claude Code's loopback `http://localhost|127.0.0.1:<port>/callback`. The token endpoint accepts `client_secret_post` and `client_secret_basic`.

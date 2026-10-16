@@ -4128,4 +4128,4 @@ async def get_person_todos(person: str, project: str = "") -> Dict[str, Any]:
 
 if __name__ == "__main__":
     logger.info("Starting Basecamp FastMCP server")
-    mcp.run(transport='http', host="0.0.0.0", port=8000, middleware=remote_auth.asgi_middleware())
+    mcp.run(transport='http', host="0.0.0.0", port=8000, middleware=remote_auth.asgi_middleware(_auth is not None))

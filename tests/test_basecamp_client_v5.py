@@ -958,11 +958,11 @@ class TestTodos(unittest.TestCase):
 
     @patch.object(BasecampClient, 'post')
     def test_complete_todo_uses_flat_route(self, mock_post):
-        mock_post.return_value = make_response(201, {"id": 2, "status": "completed"})
+        mock_post.return_value = make_response(204)
 
         result = self.client.complete_todo('999', '2')
 
-        self.assertEqual(result, {"id": 2, "status": "completed"})
+        self.assertTrue(result)
         mock_post.assert_called_once_with('todos/2/completion.json')
 
     @patch.object(BasecampClient, 'delete')
@@ -973,6 +973,38 @@ class TestTodos(unittest.TestCase):
 
         self.assertTrue(result)
         mock_delete.assert_called_once_with('todos/2/completion.json')
+
+
+class TestCards(unittest.TestCase):
+    def setUp(self):
+        self.client = make_client()
+
+    @patch.object(BasecampClient, 'post')
+    def test_complete_card_accepts_204(self, mock_post):
+        mock_post.return_value = make_response(204)
+
+        result = self.client.complete_card('999', '3')
+
+        self.assertTrue(result)
+        mock_post.assert_called_once_with('buckets/999/todos/3/completion.json')
+
+    @patch.object(BasecampClient, 'put')
+    def test_complete_card_step_uses_completions_route(self, mock_put):
+        mock_put.return_value = make_response(200, {"id": 4, "completed": True})
+
+        result = self.client.complete_card_step('999', '4')
+
+        self.assertEqual(result, {"id": 4, "completed": True})
+        mock_put.assert_called_once_with('buckets/999/card_tables/steps/4/completions.json', {"completion": "on"})
+
+    @patch.object(BasecampClient, 'put')
+    def test_uncomplete_card_step_uses_completions_route(self, mock_put):
+        mock_put.return_value = make_response(200, {"id": 4, "completed": False})
+
+        result = self.client.uncomplete_card_step('999', '4')
+
+        self.assertEqual(result, {"id": 4, "completed": False})
+        mock_put.assert_called_once_with('buckets/999/card_tables/steps/4/completions.json', {"completion": "off"})
 
 
 class TestTodolists(unittest.TestCase):

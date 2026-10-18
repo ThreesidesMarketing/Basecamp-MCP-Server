@@ -647,12 +647,12 @@ class BasecampClient:
             todo_id (str): Todo ID
             
         Returns:
-            dict: Completion details
+            bool: True if successful
         """
         endpoint = f'todos/{todo_id}/completion.json'
         response = self.post(endpoint)
-        if response.status_code == 201:
-            return response.json()
+        if response.status_code == 204:
+            return True
         else:
             raise Exception(f"Failed to complete todo: {response.status_code} - {response.text}")
 
@@ -1852,8 +1852,8 @@ class BasecampClient:
     def complete_card(self, project_id, card_id):
         """Mark a card as complete."""
         response = self.post(f'buckets/{project_id}/todos/{card_id}/completion.json')
-        if response.status_code == 201:
-            return response.json()
+        if response.status_code == 204:
+            return True
         else:
             raise Exception(f"Failed to complete card: {response.status_code} - {response.text}")
 
@@ -1917,17 +1917,17 @@ class BasecampClient:
 
     def complete_card_step(self, project_id, step_id):
         """Mark a card step as complete."""
-        response = self.post(f'buckets/{project_id}/todos/{step_id}/completion.json')
-        if response.status_code == 201:
+        response = self.put(f'buckets/{project_id}/card_tables/steps/{step_id}/completions.json', {"completion": "on"})
+        if response.status_code == 200:
             return response.json()
         else:
             raise Exception(f"Failed to complete card step: {response.status_code} - {response.text}")
 
     def uncomplete_card_step(self, project_id, step_id):
         """Mark a card step as incomplete."""
-        response = self.delete(f'buckets/{project_id}/todos/{step_id}/completion.json')
-        if response.status_code == 204:
-            return True
+        response = self.put(f'buckets/{project_id}/card_tables/steps/{step_id}/completions.json', {"completion": "off"})
+        if response.status_code == 200:
+            return response.json()
         else:
             raise Exception(f"Failed to uncomplete card step: {response.status_code} - {response.text}")
 
